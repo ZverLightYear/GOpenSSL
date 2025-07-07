@@ -528,3 +528,377 @@ func BenchmarkGOSTHash(b *testing.B) {
 		_ = hasher.Sum()
 	}
 }
+
+// Edge-case тесты для GOST
+func TestGOSTEdgeCases(t *testing.T) {
+	provider := openssl.NewProvider()
+	key := make([]byte, 32)
+	iv := make([]byte, 8)
+	rand.Read(key)
+	rand.Read(iv)
+
+	cases := []struct {
+		name string
+		data []byte
+	}{
+		{"empty", []byte{}},
+		{"one_byte", []byte{0x42}},
+		{"block_size", make([]byte, 8)},
+		{"block_size_minus1", make([]byte, 7)},
+		{"block_size_plus1", make([]byte, 9)},
+		{"all_bytes", func() []byte {
+			b := make([]byte, 256)
+			for i := 0; i < 256; i++ {
+				b[i] = byte(i)
+			}
+			return b
+		}()},
+		{"large_1MB", make([]byte, 1024*1024)},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			rand.Read(c.data)
+			cipher, err := provider.NewCipher(crypto.GOST, crypto.ModeCBC, key, iv)
+			if err != nil {
+				t.Fatalf("Failed to create GOST cipher: %v", err)
+			}
+			encrypted, err := cipher.Encrypt(c.data)
+			if err != nil {
+				t.Fatalf("Encrypt failed: %v", err)
+			}
+			decrypted, err := cipher.Decrypt(encrypted)
+			if err != nil {
+				t.Fatalf("Decrypt failed: %v", err)
+			}
+			if !bytes.Equal(c.data, decrypted) {
+				t.Errorf("Roundtrip failed for %s", c.name)
+			}
+		})
+	}
+
+	// Неверный ключ/IV
+	_, err := provider.NewCipher(crypto.GOST, crypto.ModeCBC, make([]byte, 10), iv)
+	if err == nil {
+		t.Error("Expected error for short key")
+	}
+	_, err = provider.NewCipher(crypto.GOST, crypto.ModeCBC, key, make([]byte, 5))
+	if err == nil {
+		t.Error("Expected error for short IV")
+	}
+
+	// nil-данные
+	cipher, _ := provider.NewCipher(crypto.GOST, crypto.ModeCBC, key, iv)
+	_, err = cipher.Encrypt(nil)
+	if err != nil {
+		t.Errorf("Encrypt(nil) should not error, got: %v", err)
+	}
+	_, err = cipher.Decrypt(nil)
+	if err != nil {
+		t.Errorf("Decrypt(nil) should not error, got: %v", err)
+	}
+
+	// Повторное использование
+	data := []byte("repeat test data")
+	encrypted, _ := cipher.Encrypt(data)
+	decrypted, _ := cipher.Decrypt(encrypted)
+	if !bytes.Equal(data, decrypted) {
+		t.Error("Repeat roundtrip failed")
+	}
+	// Сброс
+	if resetter, ok := cipher.(interface{ Reset() }); ok {
+		resetter.Reset()
+		encrypted2, _ := cipher.Encrypt(data)
+		decrypted2, _ := cipher.Decrypt(encrypted2)
+		if !bytes.Equal(data, decrypted2) {
+			t.Error("Roundtrip after reset failed")
+		}
+	}
+}
+
+// Фаззинг-тест для GOST (go test -fuzz совместим)
+func FuzzGOSTRoundtrip(f *testing.F) {
+	provider := openssl.NewProvider()
+	key := make([]byte, 32)
+	iv := make([]byte, 8)
+	rand.Read(key)
+	rand.Read(iv)
+	f.Add([]byte("fuzzdata"))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		cipher, err := provider.NewCipher(crypto.GOST, crypto.ModeCBC, key, iv)
+		if err != nil {
+			t.Skip()
+		}
+		encrypted, err := cipher.Encrypt(data)
+		if err != nil {
+			t.Skip()
+		}
+		decrypted, err := cipher.Decrypt(encrypted)
+		if err != nil {
+			t.Skip()
+		}
+		if !bytes.Equal(data, decrypted) {
+			t.Errorf("Fuzz roundtrip failed")
+		}
+	})
+}
+
+// Edge-case тесты для GrassHopper
+func TestGrassHopperEdgeCases(t *testing.T) {
+	provider := openssl.NewProvider()
+	key := make([]byte, 32)
+	iv := make([]byte, 16)
+	rand.Read(key)
+	rand.Read(iv)
+
+	cases := []struct {
+		name string
+		data []byte
+	}{
+		{"empty", []byte{}},
+		{"one_byte", []byte{0x42}},
+		{"block_size", make([]byte, 16)},
+		{"block_size_minus1", make([]byte, 15)},
+		{"block_size_plus1", make([]byte, 17)},
+		{"all_bytes", func() []byte {
+			b := make([]byte, 256)
+			for i := 0; i < 256; i++ {
+				b[i] = byte(i)
+			}
+			return b
+		}()},
+		{"large_1MB", make([]byte, 1024*1024)},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			rand.Read(c.data)
+			cipher, err := provider.NewCipher(crypto.GrassHopper, crypto.ModeCBC, key, iv)
+			if err != nil {
+				t.Fatalf("Failed to create GrassHopper cipher: %v", err)
+			}
+			encrypted, err := cipher.Encrypt(c.data)
+			if err != nil {
+				t.Fatalf("Encrypt failed: %v", err)
+			}
+			decrypted, err := cipher.Decrypt(encrypted)
+			if err != nil {
+				t.Fatalf("Decrypt failed: %v", err)
+			}
+			if !bytes.Equal(c.data, decrypted) {
+				t.Errorf("Roundtrip failed for %s", c.name)
+			}
+		})
+	}
+
+	// Неверный ключ/IV
+	_, err := provider.NewCipher(crypto.GrassHopper, crypto.ModeCBC, make([]byte, 10), iv)
+	if err == nil {
+		t.Error("Expected error for short key")
+	}
+	_, err = provider.NewCipher(crypto.GrassHopper, crypto.ModeCBC, key, make([]byte, 5))
+	if err == nil {
+		t.Error("Expected error for short IV")
+	}
+
+	// nil-данные
+	cipher, _ := provider.NewCipher(crypto.GrassHopper, crypto.ModeCBC, key, iv)
+	_, err = cipher.Encrypt(nil)
+	if err != nil {
+		t.Errorf("Encrypt(nil) should not error, got: %v", err)
+	}
+	_, err = cipher.Decrypt(nil)
+	if err != nil {
+		t.Errorf("Decrypt(nil) should not error, got: %v", err)
+	}
+
+	// Повторное использование
+	data := []byte("repeat test data")
+	encrypted, _ := cipher.Encrypt(data)
+	decrypted, _ := cipher.Decrypt(encrypted)
+	if !bytes.Equal(data, decrypted) {
+		t.Error("Repeat roundtrip failed")
+	}
+	// Сброс
+	if resetter, ok := cipher.(interface{ Reset() }); ok {
+		resetter.Reset()
+		encrypted2, _ := cipher.Encrypt(data)
+		decrypted2, _ := cipher.Decrypt(encrypted2)
+		if !bytes.Equal(data, decrypted2) {
+			t.Error("Roundtrip after reset failed")
+		}
+	}
+}
+
+// Фаззинг-тест для GrassHopper (go test -fuzz совместим)
+func FuzzGrassHopperRoundtrip(f *testing.F) {
+	provider := openssl.NewProvider()
+	key := make([]byte, 32)
+	iv := make([]byte, 16)
+	rand.Read(key)
+	rand.Read(iv)
+	f.Add([]byte("fuzzdata"))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		cipher, err := provider.NewCipher(crypto.GrassHopper, crypto.ModeCBC, key, iv)
+		if err != nil {
+			t.Skip()
+		}
+		encrypted, err := cipher.Encrypt(data)
+		if err != nil {
+			t.Skip()
+		}
+		decrypted, err := cipher.Decrypt(encrypted)
+		if err != nil {
+			t.Skip()
+		}
+		if !bytes.Equal(data, decrypted) {
+			t.Errorf("Fuzz roundtrip failed")
+		}
+	})
+}
+
+// Тесты на стриминг для AES, GOST, GrassHopper
+func TestStreamingEdgeCases(t *testing.T) {
+	provider := openssl.NewProvider()
+	algos := []struct {
+		name    string
+		algo    crypto.CipherAlgorithm
+		keySize int
+		ivSize  int
+		mode    crypto.CipherMode
+	}{
+		{"AES", crypto.AES, 32, 16, crypto.ModeCBC},
+		{"GOST", crypto.GOST, 32, 8, crypto.ModeCBC},
+		{"GrassHopper", crypto.GrassHopper, 32, 16, crypto.ModeCBC},
+	}
+	cases := []struct {
+		name  string
+		data  []byte
+		chunk int
+	}{
+		{"empty", []byte{}, 4},
+		{"one_byte", []byte{0x42}, 1},
+		{"block_size", make([]byte, 16), 8},
+		{"block_size_minus1", make([]byte, 15), 7},
+		{"block_size_plus1", make([]byte, 17), 5},
+		{"all_bytes", func() []byte {
+			b := make([]byte, 256)
+			for i := 0; i < 256; i++ {
+				b[i] = byte(i)
+			}
+			return b
+		}(), 13},
+		{"large_1MB", make([]byte, 1024*1024), 1024},
+	}
+	for _, a := range algos {
+		key := make([]byte, a.keySize)
+		iv := make([]byte, a.ivSize)
+		rand.Read(key)
+		rand.Read(iv)
+		for _, c := range cases {
+			rand.Read(c.data)
+			t.Run(a.name+"/"+c.name, func(t *testing.T) {
+				cipher, err := provider.NewCipher(a.algo, a.mode, key, iv)
+				if err != nil {
+					t.Fatalf("Failed to create cipher: %v", err)
+				}
+				enc, err := cipher.EncryptStream()
+				if err != nil {
+					t.Fatalf("EncryptStream failed: %v", err)
+				}
+				for i := 0; i < len(c.data); i += c.chunk {
+					end := i + c.chunk
+					if end > len(c.data) {
+						end = len(c.data)
+					}
+					enc.Write(c.data[i:end])
+				}
+				encFinal, err := enc.Final()
+				if err != nil {
+					t.Fatalf("EncryptStream Final failed: %v", err)
+				}
+				dec, err := cipher.DecryptStream()
+				if err != nil {
+					t.Fatalf("DecryptStream failed: %v", err)
+				}
+				for i := 0; i < len(encFinal); i += c.chunk {
+					end := i + c.chunk
+					if end > len(encFinal) {
+						end = len(encFinal)
+					}
+					dec.Write(encFinal[i:end])
+				}
+				decFinal, err := dec.Final()
+				if err != nil {
+					t.Fatalf("DecryptStream Final failed: %v", err)
+				}
+				if !bytes.Equal(c.data, decFinal) {
+					t.Errorf("Streaming roundtrip failed for %s/%s", a.name, c.name)
+				}
+			})
+		}
+	}
+}
+
+// Race-condition и fault-injection тесты
+func TestParallelAndFaultInjection(t *testing.T) {
+	provider := openssl.NewProvider()
+	key := make([]byte, 32)
+	iv := make([]byte, 16)
+	rand.Read(key)
+	rand.Read(iv)
+	cipher, err := provider.NewCipher(crypto.AES, crypto.ModeCBC, key, iv)
+	if err != nil {
+		t.Skip("AES not available")
+	}
+	data := []byte("parallel test data")
+
+	t.Run("parallel_encrypt_decrypt", func(t *testing.T) {
+		t.Parallel()
+		for i := 0; i < 10; i++ {
+			go func() {
+				encrypted, err := cipher.Encrypt(data)
+				if err != nil {
+					t.Error(err)
+				}
+				decrypted, err := cipher.Decrypt(encrypted)
+				if err != nil {
+					t.Error(err)
+				}
+				if !bytes.Equal(data, decrypted) {
+					t.Error("Parallel roundtrip failed")
+				}
+			}()
+		}
+	})
+
+	// Fault-injection: дешифрование мусора
+	t.Run("decrypt_garbage", func(t *testing.T) {
+		garbage := make([]byte, 32)
+		rand.Read(garbage)
+		_, err := cipher.Decrypt(garbage)
+		if err == nil {
+			t.Error("Expected error on decrypting garbage")
+		}
+	})
+
+	// Fault-injection: неверный padding (обрезаем последний байт)
+	t.Run("decrypt_wrong_padding", func(t *testing.T) {
+		encrypted, _ := cipher.Encrypt(data)
+		if len(encrypted) > 0 {
+			_, err := cipher.Decrypt(encrypted[:len(encrypted)-1])
+			if err == nil {
+				t.Error("Expected error on wrong padding")
+			}
+		}
+	})
+
+	// Fault-injection: повторный Final/Close
+	t.Run("double_final_close", func(t *testing.T) {
+		enc, _ := cipher.EncryptStream()
+		enc.Write(data)
+		enc.Final()
+		_, err := enc.Final()
+		if err == nil {
+			t.Error("Expected error on double Final")
+		}
+	})
+}

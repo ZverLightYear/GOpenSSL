@@ -334,3 +334,189 @@ func BenchmarkCipherCreation(b *testing.B) {
 		_ = cipher
 	}
 }
+
+// Edge-case тесты для AES
+func TestAESEdgeCases(t *testing.T) {
+	provider := openssl.NewProvider()
+	key := make([]byte, 32)
+	iv := make([]byte, 16)
+	rand.Read(key)
+	rand.Read(iv)
+
+	cases := []struct {
+		name string
+		data []byte
+	}{
+		{"empty", []byte{}},
+		{"one_byte", []byte{0x42}},
+		{"block_size", make([]byte, 16)},
+		{"block_size_minus1", make([]byte, 15)},
+		{"block_size_plus1", make([]byte, 17)},
+		{"all_bytes", func() []byte {
+			b := make([]byte, 256)
+			for i := 0; i < 256; i++ {
+				b[i] = byte(i)
+			}
+			return b
+		}()},
+		{"large_1MB", make([]byte, 1024*1024)},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			rand.Read(c.data)
+			cipher, err := provider.NewCipher(crypto.AES, crypto.ModeCBC, key, iv)
+			if err != nil {
+				t.Fatalf("Failed to create AES cipher: %v", err)
+			}
+			encrypted, err := cipher.Encrypt(c.data)
+			if err != nil {
+				t.Fatalf("Encrypt failed: %v", err)
+			}
+			decrypted, err := cipher.Decrypt(encrypted)
+			if err != nil {
+				t.Fatalf("Decrypt failed: %v", err)
+			}
+			if !bytes.Equal(c.data, decrypted) {
+				t.Errorf("Roundtrip failed for %s", c.name)
+			}
+		})
+	}
+
+	// Неверный ключ/IV
+	_, err := provider.NewCipher(crypto.AES, crypto.ModeCBC, make([]byte, 10), iv)
+	if err == nil {
+		t.Error("Expected error for short key")
+	}
+	_, err = provider.NewCipher(crypto.AES, crypto.ModeCBC, key, make([]byte, 5))
+	if err == nil {
+		t.Error("Expected error for short IV")
+	}
+
+	// nil-данные
+	cipher, _ := provider.NewCipher(crypto.AES, crypto.ModeCBC, key, iv)
+	_, err = cipher.Encrypt(nil)
+	if err != nil {
+		t.Errorf("Encrypt(nil) should not error, got: %v", err)
+	}
+	_, err = cipher.Decrypt(nil)
+	if err != nil {
+		t.Errorf("Decrypt(nil) should not error, got: %v", err)
+	}
+
+	// Повторное использование
+	data := []byte("repeat test data")
+	encrypted, _ := cipher.Encrypt(data)
+	decrypted, _ := cipher.Decrypt(encrypted)
+	if !bytes.Equal(data, decrypted) {
+		t.Error("Repeat roundtrip failed")
+	}
+	// Сброс
+	if resetter, ok := cipher.(interface{ Reset() }); ok {
+		resetter.Reset()
+		encrypted2, _ := cipher.Encrypt(data)
+		decrypted2, _ := cipher.Decrypt(encrypted2)
+		if !bytes.Equal(data, decrypted2) {
+			t.Error("Roundtrip after reset failed")
+		}
+	}
+}
+
+// Фаззинг-тест для AES (go test -fuzz совместим)
+func FuzzAESRoundtrip(f *testing.F) {
+	provider := openssl.NewProvider()
+	key := make([]byte, 32)
+	iv := make([]byte, 16)
+	rand.Read(key)
+	rand.Read(iv)
+	f.Add([]byte("fuzzdata"))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		cipher, err := provider.NewCipher(crypto.AES, crypto.ModeCBC, key, iv)
+		if err != nil {
+			t.Skip()
+		}
+		encrypted, err := cipher.Encrypt(data)
+		if err != nil {
+			t.Skip()
+		}
+		decrypted, err := cipher.Decrypt(encrypted)
+		if err != nil {
+			t.Skip()
+		}
+		if !bytes.Equal(data, decrypted) {
+			t.Errorf("Fuzz roundtrip failed")
+		}
+	})
+}
+
+// Edge-case тесты для хэшей
+func TestHashEdgeCases(t *testing.T) {
+	provider := openssl.NewProvider()
+	algos := []crypto.HashAlgorithm{
+		crypto.SHA256, crypto.SHA512, crypto.MD5, crypto.GOST34_11,
+	}
+	cases := []struct {
+		name string
+		data []byte
+	}{
+		{"empty", []byte{}},
+		{"one_byte", []byte{0x42}},
+		{"all_bytes", func() []byte {
+			b := make([]byte, 256)
+			for i := 0; i < 256; i++ {
+				b[i] = byte(i)
+			}
+			return b
+		}()},
+		{"large_1MB", make([]byte, 1024*1024)},
+	}
+	for _, algo := range algos {
+		hasher, err := provider.NewHasher(algo)
+		if err != nil {
+			t.Skipf("%s not supported: %v", algo, err)
+		}
+		for _, c := range cases {
+			t.Run(string(algo)+"/"+c.name, func(t *testing.T) {
+				rand.Read(c.data)
+				hasher.Reset()
+				hasher.Write(c.data)
+				sum := hasher.Sum()
+				if len(sum) != hasher.Size() {
+					t.Errorf("Hash size mismatch for %s/%s", algo, c.name)
+				}
+				// Повторное использование
+				hasher.Reset()
+				hasher.Write(c.data)
+				sum2 := hasher.Sum()
+				if !bytes.Equal(sum, sum2) {
+					t.Errorf("Hash not deterministic for %s/%s", algo, c.name)
+				}
+			})
+		}
+		// nil-данные
+		hasher.Reset()
+		hasher.Write(nil)
+		sum := hasher.Sum()
+		if len(sum) != hasher.Size() {
+			t.Errorf("Hash size mismatch for %s/nil", algo)
+		}
+	}
+}
+
+// Фаззинг-тест для хэшей (go test -fuzz совместим)
+func FuzzHashRoundtrip(f *testing.F) {
+	provider := openssl.NewProvider()
+	algo := crypto.SHA256
+	hasher, err := provider.NewHasher(algo)
+	if err != nil {
+		f.Skip()
+	}
+	f.Add([]byte("fuzzdata"))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		hasher.Reset()
+		hasher.Write(data)
+		sum := hasher.Sum()
+		if len(sum) != hasher.Size() {
+			t.Errorf("Hash size mismatch in fuzz")
+		}
+	})
+}
