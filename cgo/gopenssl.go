@@ -11,14 +11,21 @@ package gopenssl
 #include <stdlib.h>
 #include <string.h>
 
+// Глобальная переменная для отслеживания инициализации
+static int go_openssl_initialized = 0;
+
 // Принудительная загрузка legacy provider при инициализации
 __attribute__((constructor))
 static void go_force_legacy_provider() {
     OSSL_PROVIDER_load(NULL, "legacy");
 }
 
-// Инициализация legacy provider и gost-engine
-static void go_init_legacy_provider() {
+// Инициализация legacy provider и gost-engine (только один раз)
+static void go_init_legacy_provider_once() {
+    if (go_openssl_initialized) {
+        return; // Уже инициализировано
+    }
+
     // Загружаем legacy provider
     OSSL_PROVIDER* legacy = OSSL_PROVIDER_load(NULL, "legacy");
     if (!legacy) {
@@ -35,6 +42,8 @@ static void go_init_legacy_provider() {
         }
         ENGINE_free(gost_engine);
     }
+
+    go_openssl_initialized = 1;
 }
 
 // Получить версию OpenSSL
@@ -58,7 +67,7 @@ static void cipher_collector(const EVP_CIPHER *ciph, const char *from, const cha
 
 // Получить список EVP-шифров
 int go_list_ciphers(char **out, int max) {
-    go_init_legacy_provider();
+    go_init_legacy_provider_once(); // Инициализируем только один раз
     int count = 0;
     char **ptr = out;
     EVP_CIPHER_do_all_sorted(cipher_collector, &ptr);
@@ -82,7 +91,7 @@ static void digest_collector(const EVP_MD *md, const char *from, const char *to,
 
 // Получить список EVP-хэш функций
 int go_list_hashes(char **out, int max) {
-    go_init_legacy_provider();
+    go_init_legacy_provider_once(); // Инициализируем только один раз
     int count = 0;
     char **ptr = out;
     EVP_MD_do_all_sorted(digest_collector, &ptr);

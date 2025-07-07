@@ -6,12 +6,11 @@ import (
 	"testing"
 
 	"gopenssl/crypto"
-	"gopenssl/crypto/openssl"
 )
 
 // TestCryptoProvider создает и тестирует основной провайдер
 func TestCryptoProvider(t *testing.T) {
-	provider := openssl.NewProvider()
+	provider := getProvider()
 
 	// Проверяем версию OpenSSL
 	version := provider.OpenSSLVersion()
@@ -37,7 +36,7 @@ func TestCryptoProvider(t *testing.T) {
 
 // TestSupportedAlgorithms проверяет поддерживаемые алгоритмы
 func TestSupportedAlgorithms(t *testing.T) {
-	provider := openssl.NewProvider()
+	provider := getProvider()
 
 	// Проверяем поддерживаемые алгоритмы шифрования
 	cipherAlgs := provider.SupportedAlgorithms()
@@ -89,7 +88,7 @@ func TestSupportedAlgorithms(t *testing.T) {
 
 // TestSupportedModes проверяет поддерживаемые режимы
 func TestSupportedModes(t *testing.T) {
-	provider := openssl.NewProvider()
+	provider := getProvider()
 
 	// Проверяем режимы для AES
 	aesModes := provider.SupportedModes(crypto.AES)
@@ -140,7 +139,7 @@ func TestSupportedModes(t *testing.T) {
 
 // TestCipherValidation проверяет валидацию параметров шифра
 func TestCipherValidation(t *testing.T) {
-	provider := openssl.NewProvider()
+	provider := getProvider()
 
 	// Генерируем тестовые ключи и IV
 	key := make([]byte, 32)
@@ -148,28 +147,28 @@ func TestCipherValidation(t *testing.T) {
 	rand.Read(key)
 	rand.Read(iv)
 
-	// Тестируем валидные параметры
-	err := provider.ValidateCipherParams(crypto.AES, crypto.ModeCBC, key, iv)
+	// Тестируем создание шифра с валидными параметрами
+	_, err := provider.NewCipher(crypto.AES, crypto.ModeCBC, key, iv)
 	if err != nil {
-		t.Errorf("Valid cipher params should not return error: %v", err)
+		t.Errorf("Valid cipher creation failed: %v", err)
 	}
 
 	// Тестируем неверный размер ключа
 	invalidKey := make([]byte, 16)
-	err = provider.ValidateCipherParams(crypto.AES, crypto.ModeCBC, invalidKey, iv)
+	_, err = provider.NewCipher(crypto.AES, crypto.ModeCBC, invalidKey, iv)
 	if err == nil {
 		t.Error("Invalid key size should return error")
 	}
 
 	// Тестируем неверный размер IV
 	invalidIV := make([]byte, 8)
-	err = provider.ValidateCipherParams(crypto.AES, crypto.ModeCBC, key, invalidIV)
+	_, err = provider.NewCipher(crypto.AES, crypto.ModeCBC, key, invalidIV)
 	if err == nil {
 		t.Error("Invalid IV size should return error")
 	}
 
 	// Тестируем режим, который не требует IV
-	err = provider.ValidateCipherParams(crypto.AES, crypto.ModeECB, key, nil)
+	_, err = provider.NewCipher(crypto.AES, crypto.ModeECB, key, nil)
 	if err != nil {
 		t.Errorf("ECB mode should not require IV: %v", err)
 	}
@@ -177,7 +176,7 @@ func TestCipherValidation(t *testing.T) {
 
 // TestHashFactory проверяет фабрику хэшеров
 func TestHashFactory(t *testing.T) {
-	provider := openssl.NewProvider()
+	provider := getProvider()
 
 	// Тестируем создание SHA256 хэшера
 	hasher, err := provider.NewHasher(crypto.SHA256)
@@ -225,7 +224,7 @@ func TestHashFactory(t *testing.T) {
 
 // TestCipherFactory проверяет фабрику шифров
 func TestCipherFactory(t *testing.T) {
-	provider := openssl.NewProvider()
+	provider := getProvider()
 
 	// Генерируем тестовые ключи и IV
 	key := make([]byte, 32)
@@ -285,17 +284,21 @@ func TestCipherFactory(t *testing.T) {
 
 // TestGOSTSupport проверяет поддержку GOST алгоритмов
 func TestGOSTSupport(t *testing.T) {
-	provider := openssl.NewProvider()
+	provider := getProvider()
 
-	// Проверяем поддержку GOST
-	if !provider.IsGOSTSupported() {
+	// Проверяем поддержку GOST - пытаемся создать GOST шифр
+	key := make([]byte, 32)
+	iv := make([]byte, 8)
+	_, err := provider.NewCipher(crypto.GOST, crypto.ModeCBC, key, iv)
+	if err != nil {
 		t.Skip("GOST algorithms not supported, skipping GOST tests")
 	}
 
 	t.Log("GOST algorithms are supported")
 
-	// Проверяем поддержку GrassHopper
-	if !provider.IsGrassHopperSupported() {
+	// Проверяем поддержку GrassHopper - пытаемся создать GrassHopper шифр
+	_, err = provider.NewCipher(crypto.GrassHopper, crypto.ModeCBC, key, iv)
+	if err != nil {
 		t.Skip("GrassHopper algorithms not supported, skipping GrassHopper tests")
 	}
 
@@ -304,7 +307,7 @@ func TestGOSTSupport(t *testing.T) {
 
 // BenchmarkHashCreation измеряет производительность создания хэшеров
 func BenchmarkHashCreation(b *testing.B) {
-	provider := openssl.NewProvider()
+	provider := getProvider()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -318,7 +321,7 @@ func BenchmarkHashCreation(b *testing.B) {
 
 // BenchmarkCipherCreation измеряет производительность создания шифров
 func BenchmarkCipherCreation(b *testing.B) {
-	provider := openssl.NewProvider()
+	provider := getProvider()
 
 	key := make([]byte, 32)
 	iv := make([]byte, 16)
@@ -337,7 +340,7 @@ func BenchmarkCipherCreation(b *testing.B) {
 
 // Edge-case тесты для AES
 func TestAESEdgeCases(t *testing.T) {
-	provider := openssl.NewProvider()
+	provider := getProvider()
 	key := make([]byte, 32)
 	iv := make([]byte, 16)
 	rand.Read(key)
@@ -423,7 +426,7 @@ func TestAESEdgeCases(t *testing.T) {
 
 // Фаззинг-тест для AES (go test -fuzz совместим)
 func FuzzAESRoundtrip(f *testing.F) {
-	provider := openssl.NewProvider()
+	provider := getProvider()
 	key := make([]byte, 32)
 	iv := make([]byte, 16)
 	rand.Read(key)
@@ -450,7 +453,7 @@ func FuzzAESRoundtrip(f *testing.F) {
 
 // Edge-case тесты для хэшей
 func TestHashEdgeCases(t *testing.T) {
-	provider := openssl.NewProvider()
+	provider := getProvider()
 	algos := []crypto.HashAlgorithm{
 		crypto.SHA256, crypto.SHA512, crypto.MD5, crypto.GOST34_11,
 	}
@@ -504,7 +507,7 @@ func TestHashEdgeCases(t *testing.T) {
 
 // Фаззинг-тест для хэшей (go test -fuzz совместим)
 func FuzzHashRoundtrip(f *testing.F) {
-	provider := openssl.NewProvider()
+	provider := getProvider()
 	algo := crypto.SHA256
 	hasher, err := provider.NewHasher(algo)
 	if err != nil {
