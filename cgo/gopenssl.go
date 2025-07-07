@@ -6,39 +6,50 @@ package gopenssl
 #include <openssl/evp.h>
 #include <openssl/opensslv.h>
 #include <openssl/crypto.h>
+#include <openssl/engine.h>
+#include <openssl/provider.h>
 #include <stdlib.h>
 #include <string.h>
-#include <openssl/ssl.h>
-#include <openssl/err.h>
 
-// Обёртка для получения версии OpenSSL
+// Инициализация legacy provider и GOST engine
+static void go_init_legacy_and_gost() {
+    OSSL_PROVIDER_load(NULL, "legacy");
+    ENGINE_load_builtin_engines();
+    ENGINE *e = ENGINE_by_id("gost");
+    if (e) {
+        ENGINE_init(e);
+        ENGINE_set_default(e, ENGINE_METHOD_ALL);
+        ENGINE_free(e);
+    }
+}
+
+// Получить версию OpenSSL
 const char* go_openssl_version() {
     return OpenSSL_version(OPENSSL_VERSION);
 }
 
-// Получить список SSL ciphersuites (аналог openssl ciphers)
-int go_list_ssl_ciphers(char **out, int max) {
-    SSL_CTX *ctx = SSL_CTX_new(TLS_method());
-    if (!ctx) return 0;
-    SSL *ssl = SSL_new(ctx);
-    if (!ssl) {
-        SSL_CTX_free(ctx);
-        return 0;
-    }
-    STACK_OF(SSL_CIPHER) *ciphers = SSL_get_ciphers(ssl);
-    int n = sk_SSL_CIPHER_num(ciphers);
-    int count = n < max ? n : max;
-    for (int i = 0; i < count; i++) {
-        const SSL_CIPHER *cipher = sk_SSL_CIPHER_value(ciphers, i);
-        const char *name = SSL_CIPHER_get_name(cipher);
+// Коллектор для имён EVP-шифров
+static void cipher_collector(const EVP_CIPHER *ciph, const char *from, const char *to, void *arg) {
+    if (ciph == NULL) return;
+    char ***list = (char ***)arg;
+    const char *name = EVP_CIPHER_name(ciph);
+    if (name) {
         size_t len = strlen(name);
         char *copy = (char*)malloc(len+1);
         strcpy(copy, name);
-        out[i] = copy;
+        (*list)[0] = copy;
+        (*list)++;
     }
-    SSL_free(ssl);
-    SSL_CTX_free(ctx);
-    return count;
+}
+
+// Получить список EVP-шифров
+int go_list_ciphers(char **out, int max) {
+    go_init_legacy_and_gost();
+    int count = 0;
+    char **ptr = out;
+    EVP_CIPHER_do_all_sorted(cipher_collector, &ptr);
+    count = ptr - out;
+    return count < max ? count : max;
 }
 */
 import "C"
@@ -50,14 +61,16 @@ func OpenSSLVersion() string {
 	return C.GoString(C.go_openssl_version())
 }
 
-func ListSSLCiphers() []string {
-	max := 256
-	out := make([]*C.char, max)
-	count := int(C.go_list_ssl_ciphers((**C.char)(unsafe.Pointer(&out[0])), C.int(max)))
-	ciphers := make([]string, 0, count)
-	for i := 0; i < count && out[i] != nil; i++ {
-		ciphers = append(ciphers, C.GoString(out[i]))
-		C.free(unsafe.Pointer(out[i]))
+func ListCiphers() []string {
+	const max = 256
+	var arr [max]*C.char
+	n := C.go_list_ciphers((**C.char)(unsafe.Pointer(&arr[0])), C.int(max))
+	out := make([]string, 0, int(n))
+	for i := 0; i < int(n); i++ {
+		if arr[i] != nil {
+			out = append(out, C.GoString(arr[i]))
+			C.free(unsafe.Pointer(arr[i]))
+		}
 	}
-	return ciphers
+	return out
 }

@@ -1,4 +1,4 @@
-package gopenssl_test
+package tests
 
 import (
 	gopenssl "gopenssl/cgo"
@@ -15,7 +15,7 @@ func TestOpenSSLVersion(t *testing.T) {
 }
 
 func TestListCiphers(t *testing.T) {
-	ciphers := gopenssl.ListSSLCiphers()
+	ciphers := gopenssl.ListCiphers()
 	if len(ciphers) == 0 {
 		t.Fatal("No ciphers found")
 	}
@@ -25,7 +25,7 @@ func TestListCiphers(t *testing.T) {
 }
 
 func TestCipherGOSTPresent(t *testing.T) {
-	ciphers := gopenssl.ListSSLCiphers()
+	ciphers := gopenssl.ListCiphers()
 	found := false
 	for _, c := range ciphers {
 		if strings.Contains(strings.ToUpper(c), "GOST") {

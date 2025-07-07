@@ -5,6 +5,7 @@ GOST_DIR=./submodules/src/gost-engine
 BUILD_DIR=./submodules/build
 LIB_DIR=$(BUILD_DIR)/lib
 INCLUDE_DIR=$(BUILD_DIR)/include
+BIN_DIR=$(BUILD_DIR)/bin
 
 all: openssl gost-engine
 
@@ -12,12 +13,15 @@ $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 	mkdir -p $(LIB_DIR)
 	mkdir -p $(INCLUDE_DIR)
+	mkdir -p $(BIN_DIR)
 
 openssl: $(BUILD_DIR)
-	cd $(OPENSSL_DIR) && ./Configure no-shared no-tests --prefix=$(abspath $(BUILD_DIR)) && make -j && make install_sw
+	cd $(OPENSSL_DIR) && make clean || true
+	cd $(OPENSSL_DIR) && ./Configure darwin64-arm64-cc shared enable-legacy enable-engine no-tests --prefix=$(abspath $(BUILD_DIR)) --libdir=$(abspath $(LIB_DIR))
+	cd $(OPENSSL_DIR) && make -j && make install_sw
 
 gost-engine: openssl
-	cmake -S $(GOST_DIR) -B $(BUILD_DIR)/gost-engine -DOPENSSL_ROOT_DIR=$(abspath $(BUILD_DIR)) -DOPENSSL_ENGINES_DIR=$(abspath $(BUILD_DIR))/lib/engines-3 -DCMAKE_INSTALL_PREFIX=$(abspath $(BUILD_DIR))
+	cmake -S $(GOST_DIR) -B $(BUILD_DIR)/gost-engine -DOPENSSL_ROOT_DIR=$(abspath $(BUILD_DIR)) -DOPENSSL_ENGINES_DIR=$(abspath $(LIB_DIR))/engines-3 -DCMAKE_INSTALL_PREFIX=$(abspath $(BUILD_DIR))
 	cmake --build $(BUILD_DIR)/gost-engine --target install
 
 clean:
