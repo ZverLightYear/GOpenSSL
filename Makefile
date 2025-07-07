@@ -23,6 +23,9 @@ openssl: $(BUILD_DIR)
 gost-engine: openssl
 	cmake -S $(GOST_DIR) -B $(BUILD_DIR)/gost-engine -DOPENSSL_ROOT_DIR=$(abspath $(BUILD_DIR)) -DOPENSSL_ENGINES_DIR=$(abspath $(LIB_DIR))/engines-3 -DCMAKE_INSTALL_PREFIX=$(abspath $(BUILD_DIR))
 	cmake --build $(BUILD_DIR)/gost-engine --target install
+	# Копируем gost engine в ossl-modules для использования как provider
+	mkdir -p $(LIB_DIR)/ossl-modules
+	cp $(LIB_DIR)/engines-3/gost.dylib $(LIB_DIR)/ossl-modules/gost.dylib
 
 clean:
 	rm -rf $(BUILD_DIR) 

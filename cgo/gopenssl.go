@@ -1,12 +1,13 @@
 package gopenssl
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/../submodules/build/include
+#cgo CFLAGS: -I${SRCDIR}/../submodules/build/include -Wno-deprecated-declarations
 #cgo LDFLAGS: -L${SRCDIR}/../submodules/build/lib -lssl -lcrypto -ldl
 #include <openssl/evp.h>
 #include <openssl/opensslv.h>
 #include <openssl/crypto.h>
 #include <openssl/provider.h>
+#include <openssl/engine.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -16,13 +17,23 @@ static void go_force_legacy_provider() {
     OSSL_PROVIDER_load(NULL, "legacy");
 }
 
-// Инициализация legacy provider
+// Инициализация legacy provider и gost-engine
 static void go_init_legacy_provider() {
     // Загружаем legacy provider
     OSSL_PROVIDER* legacy = OSSL_PROVIDER_load(NULL, "legacy");
     if (!legacy) {
         // Если не удалось загрузить, попробуем загрузить по пути
         legacy = OSSL_PROVIDER_load(NULL, "${SRCDIR}/../submodules/build/lib/ossl-modules/legacy.dylib");
+    }
+
+    // Загружаем gost-engine
+    ENGINE_load_builtin_engines();
+    ENGINE* gost_engine = ENGINE_by_id("gost");
+    if (gost_engine) {
+        if (ENGINE_init(gost_engine)) {
+            ENGINE_set_default(gost_engine, ENGINE_METHOD_ALL);
+        }
+        ENGINE_free(gost_engine);
     }
 }
 

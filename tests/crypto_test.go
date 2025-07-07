@@ -121,9 +121,7 @@ func TestSupportedModes(t *testing.T) {
 	expectedGOSTModes := []crypto.CipherMode{
 		crypto.ModeECB,
 		crypto.ModeCBC,
-		crypto.ModeCFB,
-		crypto.ModeOFB,
-		crypto.ModeCTR,
+		crypto.ModeCTR, // gost-engine поддерживает только ECB, CBC, CTR
 	}
 
 	for _, expected := range expectedGOSTModes {
