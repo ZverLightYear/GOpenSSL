@@ -30,6 +30,11 @@ func GetProvider() *Provider {
 type Provider struct {
 	cipherFactory *CipherFactory
 	hashFactory   *HashFactory
+
+	// Кэш для списков шифров и хэшей
+	ciphersCache []string
+	hashesCache  []string
+	cacheOnce    sync.Once
 }
 
 // NewProvider создает новый OpenSSL провайдер
@@ -45,14 +50,22 @@ func (p *Provider) OpenSSLVersion() string {
 	return gopenssl.OpenSSLVersion()
 }
 
-// ListCiphers возвращает список доступных шифров
+// ListCiphers возвращает список доступных шифров (кэшированный)
 func (p *Provider) ListCiphers() []string {
-	return gopenssl.ListCiphers()
+	p.cacheOnce.Do(func() {
+		p.ciphersCache = gopenssl.ListCiphers()
+		p.hashesCache = gopenssl.ListHashes()
+	})
+	return p.ciphersCache
 }
 
-// ListHashes возвращает список доступных хэш-алгоритмов
+// ListHashes возвращает список доступных хэш-алгоритмов (кэшированный)
 func (p *Provider) ListHashes() []string {
-	return gopenssl.ListHashes()
+	p.cacheOnce.Do(func() {
+		p.ciphersCache = gopenssl.ListCiphers()
+		p.hashesCache = gopenssl.ListHashes()
+	})
+	return p.hashesCache
 }
 
 // NewCipher создает новый шифр

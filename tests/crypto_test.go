@@ -154,7 +154,7 @@ func TestCipherValidation(t *testing.T) {
 	}
 
 	// Тестируем неверный размер ключа
-	invalidKey := make([]byte, 16)
+	invalidKey := make([]byte, 15) // 15 байт - невалидный размер для AES
 	_, err = provider.NewCipher(crypto.AES, crypto.ModeCBC, invalidKey, iv)
 	if err == nil {
 		t.Error("Invalid key size should return error")
@@ -291,18 +291,19 @@ func TestGOSTSupport(t *testing.T) {
 	iv := make([]byte, 8)
 	_, err := provider.NewCipher(crypto.GOST, crypto.ModeCBC, key, iv)
 	if err != nil {
-		t.Skip("GOST algorithms not supported, skipping GOST tests")
+		t.Logf("GOST algorithms not supported: %v", err)
+	} else {
+		t.Log("GOST algorithms are supported")
 	}
-
-	t.Log("GOST algorithms are supported")
 
 	// Проверяем поддержку GrassHopper - пытаемся создать GrassHopper шифр
-	_, err = provider.NewCipher(crypto.GrassHopper, crypto.ModeCBC, key, iv)
+	grasshopperIV := make([]byte, 16) // GrassHopper требует IV размером 16 байт
+	_, err = provider.NewCipher(crypto.GrassHopper, crypto.ModeCBC, key, grasshopperIV)
 	if err != nil {
-		t.Skip("GrassHopper algorithms not supported, skipping GrassHopper tests")
+		t.Logf("GrassHopper algorithms not supported: %v", err)
+	} else {
+		t.Log("GrassHopper algorithms are supported")
 	}
-
-	t.Log("GrassHopper algorithms are supported")
 }
 
 // BenchmarkHashCreation измеряет производительность создания хэшеров

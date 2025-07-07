@@ -174,6 +174,14 @@ func (f *CipherFactory) requiresIV(mode crypto.CipherMode) bool {
 
 // newAESCipher создает AES шифр
 func (f *CipherFactory) newAESCipher(mode crypto.CipherMode, key []byte, iv []byte) (crypto.Cipher, error) {
+	// Явная проверка размера ключа
+	switch len(key) {
+	case 16, 24, 32:
+		// ok
+	default:
+		return nil, fmt.Errorf("invalid key size for AES: got %d, expected 16, 24, or 32", len(key))
+	}
+
 	// Определяем OpenSSL имя шифра по размеру ключа
 	var cipherName string
 	switch len(key) {

@@ -14,12 +14,6 @@ package gopenssl
 // Глобальная переменная для отслеживания инициализации
 static int go_openssl_initialized = 0;
 
-// Принудительная загрузка legacy provider при инициализации
-__attribute__((constructor))
-static void go_force_legacy_provider() {
-    OSSL_PROVIDER_load(NULL, "legacy");
-}
-
 // Инициализация legacy provider и gost-engine (только один раз)
 static void go_init_legacy_provider_once() {
     if (go_openssl_initialized) {

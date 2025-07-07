@@ -25,9 +25,7 @@ static void go_init_legacy_provider() {
 
     OSSL_PROVIDER* def = OSSL_PROVIDER_load(NULL, "default");
     if (!def) {
-        fprintf(stderr, "Failed to load default provider\n");
-    } else {
-        fprintf(stderr, "Default provider loaded successfully\n");
+        // fprintf(stderr, "Failed to load default provider\n");
     }
 
     // Загружаем legacy provider
@@ -36,12 +34,8 @@ static void go_init_legacy_provider() {
         // Если не удалось загрузить, попробуем загрузить по пути
         legacy = OSSL_PROVIDER_load(NULL, "${SRCDIR}/../../submodules/build/lib/ossl-modules/legacy.dylib");
         if (!legacy) {
-            fprintf(stderr, "Failed to load legacy provider\n");
-        } else {
-            fprintf(stderr, "Legacy provider loaded from path\n");
+            // fprintf(stderr, "Failed to load legacy provider\n");
         }
-    } else {
-        fprintf(stderr, "Legacy provider loaded successfully\n");
     }
 }
 
