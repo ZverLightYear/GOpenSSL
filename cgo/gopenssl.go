@@ -7,6 +7,7 @@ package gopenssl
 #include <openssl/opensslv.h>
 #include <openssl/crypto.h>
 #include <stdlib.h>
+#include <string.h>
 
 // Обёртка для получения версии OpenSSL
 const char* go_openssl_version() {
