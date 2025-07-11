@@ -5,13 +5,13 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"gopenssl/crypto"
-	"gopenssl/crypto/openssl"
+	"gopenssl"
+	"gopenssl/internal/common"
 )
 
 // TestAESEncryptionDecryption тестирует AES шифрование и дешифрование
 func TestAESEncryptionDecryption(t *testing.T) {
-	provider := openssl.NewProvider()
+	provider := gopenssl.NewProvider()
 
 	// Генерируем тестовые ключи и IV
 	key := make([]byte, 32) // AES-256
@@ -22,27 +22,27 @@ func TestAESEncryptionDecryption(t *testing.T) {
 	testData := []byte("Hello, World! This is a test message for AES encryption.")
 
 	// Тестируем основные поддерживаемые режимы AES (GCM и CCM требуют специальной обработки)
-	aesModes := []crypto.CipherMode{
-		crypto.ModeECB,
-		crypto.ModeCBC,
-		crypto.ModeCFB,
-		crypto.ModeOFB,
-		crypto.ModeCTR,
-		// crypto.ModeGCM,  // Требует специальной обработки для аутентификации
-		// crypto.ModeCCM,  // Требует специальной обработки для аутентификации
+	aesModes := []common.CipherMode{
+		common.ModeECB,
+		common.ModeCBC,
+		common.ModeCFB,
+		common.ModeOFB,
+		common.ModeCTR,
+		// common.ModeGCM,  // Требует специальной обработки для аутентификации
+		// common.ModeCCM,  // Требует специальной обработки для аутентификации
 	}
 
 	for _, mode := range aesModes {
 		t.Run(string(mode), func(t *testing.T) {
 			// Создаем шифр
-			var cipher crypto.Cipher
+			var cipher common.Cipher
 			var err error
 
-			if mode == crypto.ModeECB {
+			if mode == common.ModeECB {
 				// ECB не требует IV
-				cipher, err = provider.NewCipher(crypto.AES, mode, key, nil)
+				cipher, err = provider.NewCipher(common.AES, mode, key, nil)
 			} else {
-				cipher, err = provider.NewCipher(crypto.AES, mode, key, iv)
+				cipher, err = provider.NewCipher(common.AES, mode, key, iv)
 			}
 
 			if err != nil {
@@ -50,7 +50,7 @@ func TestAESEncryptionDecryption(t *testing.T) {
 			}
 
 			// Проверяем свойства шифра
-			if cipher.Algorithm() != crypto.AES {
+			if cipher.Algorithm() != common.AES {
 				t.Errorf("Expected algorithm AES, got %s", cipher.Algorithm())
 			}
 
@@ -94,7 +94,7 @@ func TestAESEncryptionDecryption(t *testing.T) {
 
 // TestAESStreaming тестирует потоковое AES шифрование
 func TestAESStreaming(t *testing.T) {
-	provider := openssl.NewProvider()
+	provider := gopenssl.NewProvider()
 
 	// Генерируем тестовые ключи и IV
 	key := make([]byte, 32)
@@ -105,7 +105,7 @@ func TestAESStreaming(t *testing.T) {
 	testData := []byte("Hello, World! This is a test message for AES streaming encryption.")
 
 	// Тестируем потоковое шифрование для CBC режима
-	cipher, err := provider.NewCipher(crypto.AES, crypto.ModeCBC, key, iv)
+	cipher, err := provider.NewCipher(common.AES, common.ModeCBC, key, iv)
 	if err != nil {
 		t.Fatalf("Failed to create AES-CBC cipher: %v", err)
 	}
@@ -186,7 +186,7 @@ func TestAESStreaming(t *testing.T) {
 
 // TestAESDifferentKeySizes тестирует AES с разными размерами ключей
 func TestAESDifferentKeySizes(t *testing.T) {
-	provider := openssl.NewProvider()
+	provider := gopenssl.NewProvider()
 
 	// Тестируем AES-128 (16 байт ключа)
 	key128 := make([]byte, 16)
@@ -197,7 +197,7 @@ func TestAESDifferentKeySizes(t *testing.T) {
 	testData := []byte("Test message for AES-128")
 
 	// Создаем шифр с 16-байтным ключом
-	cipher, err := provider.NewCipher(crypto.AES, crypto.ModeCBC, key128, iv)
+	cipher, err := provider.NewCipher(common.AES, common.ModeCBC, key128, iv)
 	if err != nil {
 		t.Fatalf("Failed to create AES cipher with 16-byte key: %v", err)
 	}
@@ -225,14 +225,14 @@ func TestAESDifferentKeySizes(t *testing.T) {
 
 // TestAESEmptyData тестирует AES с пустыми данными
 func TestAESEmptyData(t *testing.T) {
-	provider := openssl.NewProvider()
+	provider := gopenssl.NewProvider()
 
 	key := make([]byte, 32)
 	iv := make([]byte, 16)
 	rand.Read(key)
 	rand.Read(iv)
 
-	cipher, err := provider.NewCipher(crypto.AES, crypto.ModeCBC, key, iv)
+	cipher, err := provider.NewCipher(common.AES, common.ModeCBC, key, iv)
 	if err != nil {
 		t.Fatalf("Failed to create AES cipher: %v", err)
 	}
@@ -257,14 +257,14 @@ func TestAESEmptyData(t *testing.T) {
 
 // TestAESLargeData тестирует AES с большими данными
 func TestAESLargeData(t *testing.T) {
-	provider := openssl.NewProvider()
+	provider := gopenssl.NewProvider()
 
 	key := make([]byte, 32)
 	iv := make([]byte, 16)
 	rand.Read(key)
 	rand.Read(iv)
 
-	cipher, err := provider.NewCipher(crypto.AES, crypto.ModeCBC, key, iv)
+	cipher, err := provider.NewCipher(common.AES, common.ModeCBC, key, iv)
 	if err != nil {
 		t.Fatalf("Failed to create AES cipher: %v", err)
 	}
@@ -298,14 +298,14 @@ func TestAESLargeData(t *testing.T) {
 
 // BenchmarkAESEncryption измеряет производительность AES шифрования
 func BenchmarkAESEncryption(b *testing.B) {
-	provider := openssl.NewProvider()
+	provider := gopenssl.NewProvider()
 
 	key := make([]byte, 32)
 	iv := make([]byte, 16)
 	rand.Read(key)
 	rand.Read(iv)
 
-	cipher, err := provider.NewCipher(crypto.AES, crypto.ModeCBC, key, iv)
+	cipher, err := provider.NewCipher(common.AES, common.ModeCBC, key, iv)
 	if err != nil {
 		b.Fatalf("Failed to create AES cipher: %v", err)
 	}
@@ -324,14 +324,14 @@ func BenchmarkAESEncryption(b *testing.B) {
 
 // BenchmarkAESDecryption измеряет производительность AES дешифрования
 func BenchmarkAESDecryption(b *testing.B) {
-	provider := openssl.NewProvider()
+	provider := gopenssl.NewProvider()
 
 	key := make([]byte, 32)
 	iv := make([]byte, 16)
 	rand.Read(key)
 	rand.Read(iv)
 
-	cipher, err := provider.NewCipher(crypto.AES, crypto.ModeCBC, key, iv)
+	cipher, err := provider.NewCipher(common.AES, common.ModeCBC, key, iv)
 	if err != nil {
 		b.Fatalf("Failed to create AES cipher: %v", err)
 	}

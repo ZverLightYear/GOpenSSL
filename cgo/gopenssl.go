@@ -1,4 +1,4 @@
-package gopenssl
+package cgopenssl
 
 /*
 #cgo CFLAGS: -I${SRCDIR}/../submodules/build/include -Wno-deprecated-declarations
@@ -97,7 +97,6 @@ import "C"
 import (
 	"os"
 	"path/filepath"
-	"unsafe"
 )
 
 func init() {
@@ -112,32 +111,4 @@ func init() {
 
 func OpenSSLVersion() string {
 	return C.GoString(C.go_openssl_version())
-}
-
-func ListCiphers() []string {
-	const max = 256
-	var arr [max]*C.char
-	n := C.go_list_ciphers((**C.char)(unsafe.Pointer(&arr[0])), C.int(max))
-	out := make([]string, 0, int(n))
-	for i := 0; i < int(n); i++ {
-		if arr[i] != nil {
-			out = append(out, C.GoString(arr[i]))
-			C.free(unsafe.Pointer(arr[i]))
-		}
-	}
-	return out
-}
-
-func ListHashes() []string {
-	const max = 256
-	var arr [max]*C.char
-	n := C.go_list_hashes((**C.char)(unsafe.Pointer(&arr[0])), C.int(max))
-	out := make([]string, 0, int(n))
-	for i := 0; i < int(n); i++ {
-		if arr[i] != nil {
-			out = append(out, C.GoString(arr[i]))
-			C.free(unsafe.Pointer(arr[i]))
-		}
-	}
-	return out
 }

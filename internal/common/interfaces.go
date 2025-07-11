@@ -1,4 +1,4 @@
-package crypto
+package common
 
 // CipherMode представляет режим работы блочного шифра
 type CipherMode string

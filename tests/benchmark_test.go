@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"gopenssl/crypto"
+	"gopenssl"
 )
 
 // Результаты бенчмарка для создания таблицы
@@ -43,14 +43,14 @@ func BenchmarkAESGoVsOpenSSLCLI(b *testing.B) {
 	// AES алгоритмы для тестирования
 	algorithms := []struct {
 		name    string
-		mode    crypto.CipherMode
+		mode    gopenssl.CipherMode
 		keySize int
 		ivSize  int
 		cliName string
 	}{
-		{"AES-256-CBC", crypto.ModeCBC, 32, 16, "aes-256-cbc"},
-		{"AES-256-ECB", crypto.ModeECB, 32, 0, "aes-256-ecb"},
-		{"AES-256-CTR", crypto.ModeCTR, 32, 16, "aes-256-ctr"},
+		{"AES-256-CBC", gopenssl.ModeCBC, 32, 16, "aes-256-cbc"},
+		{"AES-256-ECB", gopenssl.ModeECB, 32, 0, "aes-256-ecb"},
+		{"AES-256-CTR", gopenssl.ModeCTR, 32, 16, "aes-256-ctr"},
 	}
 
 	provider := getProvider()
@@ -72,7 +72,7 @@ func BenchmarkAESGoVsOpenSSLCLI(b *testing.B) {
 				}
 
 				// Создаем Go cipher
-				cipher, err := provider.NewCipher(crypto.AES, alg.mode, key, iv)
+				cipher, err := provider.NewCipher(gopenssl.AES, alg.mode, key, iv)
 				if err != nil {
 					b.Fatalf("Failed to create Go cipher: %v", err)
 				}
@@ -105,7 +105,7 @@ func BenchmarkAESGoVsOpenSSLCLI(b *testing.B) {
 				// Benchmark OpenSSL CLI
 				b.Run("OpenSSL_CLI", func(b *testing.B) {
 					args := []string{"enc", "-" + alg.cliName, "-K", fmt.Sprintf("%x", key)}
-					if alg.mode == crypto.ModeECB {
+					if alg.mode == gopenssl.ModeECB {
 						args = append(args, "-nopad")
 					}
 					if iv != nil {
@@ -184,12 +184,12 @@ func BenchmarkHashGoVsOpenSSLCLI(b *testing.B) {
 	// Хэш-алгоритмы для тестирования
 	hashAlgorithms := []struct {
 		name      string
-		algorithm crypto.HashAlgorithm
+		algorithm gopenssl.HashAlgorithm
 		cliName   string
 	}{
-		{"SHA256", crypto.SHA256, "sha256"},
-		{"SHA512", crypto.SHA512, "sha512"},
-		{"MD5", crypto.MD5, "md5"},
+		{"SHA256", gopenssl.SHA256, "sha256"},
+		{"SHA512", gopenssl.SHA512, "sha512"},
+		{"MD5", gopenssl.MD5, "md5"},
 	}
 
 	provider := getProvider()
@@ -201,6 +201,12 @@ func BenchmarkHashGoVsOpenSSLCLI(b *testing.B) {
 				data := make([]byte, size)
 				rand.Read(data)
 
+				// Создаем Go hasher
+				hasher, err := provider.NewHasher(hash.algorithm)
+				if err != nil {
+					b.Fatalf("Failed to create Go hasher: %v", err)
+				}
+
 				var goTime, cliTime time.Duration
 				var goThroughput, cliThroughput float64
 				var goIterations, cliIterations int
@@ -210,10 +216,6 @@ func BenchmarkHashGoVsOpenSSLCLI(b *testing.B) {
 
 				// Benchmark Go
 				b.Run("Go", func(b *testing.B) {
-					hasher, err := provider.NewHasher(hash.algorithm)
-					if err != nil {
-						b.Fatalf("Failed to create Go hasher: %v", err)
-					}
 					b.ResetTimer()
 					start := time.Now()
 					for i := 0; i < iterations; i++ {
@@ -227,7 +229,7 @@ func BenchmarkHashGoVsOpenSSLCLI(b *testing.B) {
 					goTime = time.Since(start)
 					goIterations = iterations
 					avgTime := float64(goTime.Nanoseconds()) / float64(goIterations)
-					goThroughput = float64(size) / (avgTime / 1e9) / (1024 * 1024)
+					goThroughput = float64(size) / (avgTime / 1e9) / (1024 * 1024) // MB/s
 					b.ReportMetric(avgTime, "ns/op")
 					b.ReportMetric(goThroughput, "MB/s")
 				})
@@ -249,17 +251,18 @@ func BenchmarkHashGoVsOpenSSLCLI(b *testing.B) {
 						cmd.Stdout = &output
 						err := cmd.Run()
 						if err != nil {
-							b.Fatalf("OpenSSL CLI hash failed: %v", err)
+							b.Fatalf("OpenSSL CLI failed: %v", err)
 						}
 					}
 					cliTime = time.Since(start)
 					cliIterations = iterations
 					avgTime := float64(cliTime.Nanoseconds()) / float64(cliIterations)
-					cliThroughput = float64(size) / (avgTime / 1e9) / (1024 * 1024)
+					cliThroughput = float64(size) / (avgTime / 1e9) / (1024 * 1024) // MB/s
 					b.ReportMetric(avgTime, "ns/op")
 					b.ReportMetric(cliThroughput, "MB/s")
 				})
 
+				// Сравнение и вывод результатов
 				var speedup float64
 				if cliThroughput > 0 {
 					speedup = goThroughput / cliThroughput
@@ -293,93 +296,98 @@ func BenchmarkHashGoVsOpenSSLCLI(b *testing.B) {
 	}
 }
 
-// BenchmarkThroughput тестирует пропускную способность для больших данных
+// BenchmarkThroughput тестирует пропускную способность
 func BenchmarkThroughput(b *testing.B) {
 	provider := getProvider()
 
-	// Большие размеры данных для тестирования пропускной способности
-	sizes := []int{1024 * 1024, 10 * 1024 * 1024} // 1MB, 10MB
+	// Тестовые данные
+	data := make([]byte, 1024*1024) // 1MB
+	rand.Read(data)
 
+	// Алгоритмы для тестирования
 	algorithms := []struct {
 		name      string
-		algorithm crypto.CipherAlgorithm
-		mode      crypto.CipherMode
+		algorithm gopenssl.CipherAlgorithm
+		mode      gopenssl.CipherMode
 		keySize   int
 		ivSize    int
 	}{
-		{"AES-256-CBC", crypto.AES, crypto.ModeCBC, 32, 16},
-		{"AES-256-CTR", crypto.AES, crypto.ModeCTR, 32, 16},
-	}
-
-	for _, alg := range algorithms {
-		for _, size := range sizes {
-			b.Run(fmt.Sprintf("%s_%dMB", alg.name, size/(1024*1024)), func(b *testing.B) {
-				// Подготавливаем тестовые данные
-				data := make([]byte, size)
-				rand.Read(data)
-
-				key := make([]byte, alg.keySize)
-				rand.Read(key)
-
-				iv := make([]byte, alg.ivSize)
-				rand.Read(iv)
-
-				// Создаем Go cipher
-				cipher, err := provider.NewCipher(alg.algorithm, alg.mode, key, iv)
-				if err != nil {
-					b.Fatalf("Failed to create Go cipher: %v", err)
-				}
-
-				b.ResetTimer()
-				b.SetBytes(int64(size))
-
-				for i := 0; i < b.N; i++ {
-					_, err := cipher.Encrypt(data)
-					if err != nil {
-						b.Fatalf("Go encrypt failed: %v", err)
-					}
-				}
-			})
-		}
-	}
-}
-
-// BenchmarkConcurrent тестирует производительность при параллельном использовании
-func BenchmarkConcurrent(b *testing.B) {
-	provider := getProvider()
-
-	// Тестовые данные
-	data := make([]byte, 1024)
-	rand.Read(data)
-
-	key := make([]byte, 32)
-	rand.Read(key)
-
-	iv := make([]byte, 16)
-	rand.Read(iv)
-
-	algorithms := []struct {
-		name      string
-		algorithm crypto.CipherAlgorithm
-		mode      crypto.CipherMode
-	}{
-		{"AES-256-CBC", crypto.AES, crypto.ModeCBC},
-		{"AES-256-CTR", crypto.AES, crypto.ModeCTR},
+		{"AES-256-CBC", gopenssl.AES, gopenssl.ModeCBC, 32, 16},
+		{"AES-256-ECB", gopenssl.AES, gopenssl.ModeECB, 32, 0},
+		{"AES-256-CTR", gopenssl.AES, gopenssl.ModeCTR, 32, 16},
 	}
 
 	for _, alg := range algorithms {
 		b.Run(alg.name, func(b *testing.B) {
+			key := make([]byte, alg.keySize)
+			rand.Read(key)
+
+			var iv []byte
+			if alg.ivSize > 0 {
+				iv = make([]byte, alg.ivSize)
+				rand.Read(iv)
+			}
+
+			cipher, err := provider.NewCipher(alg.algorithm, alg.mode, key, iv)
+			if err != nil {
+				b.Fatalf("Failed to create cipher: %v", err)
+			}
+
+			b.ResetTimer()
+			b.SetBytes(int64(len(data)))
+			for i := 0; i < b.N; i++ {
+				_, err := cipher.Encrypt(data)
+				if err != nil {
+					b.Fatalf("Encrypt failed: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// BenchmarkConcurrent тестирует производительность в конкурентной среде
+func BenchmarkConcurrent(b *testing.B) {
+	provider := getProvider()
+
+	// Тестовые данные
+	data := make([]byte, 1024) // 1KB
+	rand.Read(data)
+
+	// Алгоритмы для тестирования
+	algorithms := []struct {
+		name      string
+		algorithm gopenssl.CipherAlgorithm
+		mode      gopenssl.CipherMode
+		keySize   int
+		ivSize    int
+	}{
+		{"AES-256-CBC", gopenssl.AES, gopenssl.ModeCBC, 32, 16},
+		{"AES-256-ECB", gopenssl.AES, gopenssl.ModeECB, 32, 0},
+		{"AES-256-CTR", gopenssl.AES, gopenssl.ModeCTR, 32, 16},
+	}
+
+	for _, alg := range algorithms {
+		b.Run(alg.name, func(b *testing.B) {
+			key := make([]byte, alg.keySize)
+			rand.Read(key)
+
+			var iv []byte
+			if alg.ivSize > 0 {
+				iv = make([]byte, alg.ivSize)
+				rand.Read(iv)
+			}
+
+			b.ResetTimer()
 			b.RunParallel(func(pb *testing.PB) {
-				// Создаем cipher для каждой горутины
 				cipher, err := provider.NewCipher(alg.algorithm, alg.mode, key, iv)
 				if err != nil {
-					b.Fatalf("Failed to create Go cipher: %v", err)
+					b.Fatalf("Failed to create cipher: %v", err)
 				}
 
 				for pb.Next() {
 					_, err := cipher.Encrypt(data)
 					if err != nil {
-						b.Fatalf("Go encrypt failed: %v", err)
+						b.Fatalf("Encrypt failed: %v", err)
 					}
 				}
 			})
@@ -392,95 +400,93 @@ func BenchmarkMemoryUsage(b *testing.B) {
 	provider := getProvider()
 
 	// Тестовые данные
-	data := make([]byte, 1024*1024) // 1MB
+	data := make([]byte, 1024) // 1KB
 	rand.Read(data)
 
-	key := make([]byte, 32)
-	rand.Read(key)
-
-	iv := make([]byte, 16)
-	rand.Read(iv)
-
+	// Алгоритмы для тестирования
 	algorithms := []struct {
 		name      string
-		algorithm crypto.CipherAlgorithm
-		mode      crypto.CipherMode
+		algorithm gopenssl.CipherAlgorithm
+		mode      gopenssl.CipherMode
+		keySize   int
+		ivSize    int
 	}{
-		{"AES-256-CBC", crypto.AES, crypto.ModeCBC},
-		{"AES-256-CTR", crypto.AES, crypto.ModeCTR},
+		{"AES-256-CBC", gopenssl.AES, gopenssl.ModeCBC, 32, 16},
+		{"AES-256-ECB", gopenssl.AES, gopenssl.ModeECB, 32, 0},
+		{"AES-256-CTR", gopenssl.AES, gopenssl.ModeCTR, 32, 16},
 	}
 
 	for _, alg := range algorithms {
 		b.Run(alg.name, func(b *testing.B) {
-			b.ReportAllocs()
+			key := make([]byte, alg.keySize)
+			rand.Read(key)
 
+			var iv []byte
+			if alg.ivSize > 0 {
+				iv = make([]byte, alg.ivSize)
+				rand.Read(iv)
+			}
+
+			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				// Создаем новый cipher для каждого итерации
 				cipher, err := provider.NewCipher(alg.algorithm, alg.mode, key, iv)
 				if err != nil {
-					b.Fatalf("Failed to create Go cipher: %v", err)
+					b.Fatalf("Failed to create cipher: %v", err)
 				}
 
 				_, err = cipher.Encrypt(data)
 				if err != nil {
-					b.Fatalf("Go encrypt failed: %v", err)
+					b.Fatalf("Encrypt failed: %v", err)
 				}
 			}
 		})
 	}
 }
 
-// После всех бенчмарков выводим итоговую таблицу
+// printBenchmarkSummary выводит сводку результатов бенчмарка
 func printBenchmarkSummary() {
-	if len(benchmarkResults) == 0 {
-		return
+	fmt.Println("\n📊 Сводка результатов бенчмарка шифрования:")
+	fmt.Println(strings.Repeat("=", 60))
+	fmt.Printf("%-20s %-12s %-15s %-15s %-10s\n", "Алгоритм", "Размер данных", "Go (MB/s)", "CLI (MB/s)", "Ускорение")
+	fmt.Println(strings.Repeat("-", 60))
+
+	for _, result := range benchmarkResults {
+		fmt.Printf("%-20s %-12d %-15.2f %-15.2f %-10.1f\n",
+			result.Algorithm, result.DataSize, result.GoThroughput, result.CLIThroughput, result.Speedup)
 	}
-	fmt.Println("\n================= Сравнительная таблица Go vs OpenSSL CLI =================")
-	fmt.Printf("%-18s | %-10s | %-15s | %-15s | %-10s | %-12s | %-12s\n", "Algorithm", "DataSize", "Go ns/op", "CLI ns/op", "Speedup", "Go MB/s", "CLI MB/s")
-	fmt.Println(strings.Repeat("-", 90))
-	for _, r := range benchmarkResults {
-		fmt.Printf("%-18s | %-10d | %-15.2f | %-15.2f | %-10.1f | %-12.2f | %-12.2f\n",
-			r.Algorithm, r.DataSize, float64(r.GoTime.Nanoseconds()), float64(r.CLITime.Nanoseconds()), r.Speedup, r.GoThroughput, r.CLIThroughput)
-	}
-	fmt.Println(strings.Repeat("=", 90))
 }
 
-// После всех бенчмарков выводим итоговую таблицу для хэшей
+// printHashBenchmarkSummary выводит сводку результатов бенчмарка хэшей
 func printHashBenchmarkSummary() {
-	if len(hashBenchmarkResults) == 0 {
-		return
+	fmt.Println("\n📊 Сводка результатов бенчмарка хэширования:")
+	fmt.Println(strings.Repeat("=", 60))
+	fmt.Printf("%-20s %-12s %-15s %-15s %-10s\n", "Алгоритм", "Размер данных", "Go (MB/s)", "CLI (MB/s)", "Ускорение")
+	fmt.Println(strings.Repeat("-", 60))
+
+	for _, result := range hashBenchmarkResults {
+		fmt.Printf("%-20s %-12d %-15.2f %-15.2f %-10.1f\n",
+			result.Algorithm, result.DataSize, result.GoThroughput, result.CLIThroughput, result.Speedup)
 	}
-	fmt.Println("\n================= Сравнительная таблица Go vs OpenSSL CLI (Hash) =================")
-	fmt.Printf("%-12s | %-10s | %-15s | %-15s | %-10s | %-12s | %-12s\n", "Algorithm", "DataSize", "Go ns/op", "CLI ns/op", "Speedup", "Go MB/s", "CLI MB/s")
-	fmt.Println(strings.Repeat("-", 85))
-	for _, r := range hashBenchmarkResults {
-		fmt.Printf("%-12s | %-10d | %-15.2f | %-15.2f | %-10.1f | %-12.2f | %-12.2f\n",
-			r.Algorithm, r.DataSize, float64(r.GoTime.Nanoseconds()), float64(r.CLITime.Nanoseconds()), r.Speedup, r.GoThroughput, r.CLIThroughput)
-	}
-	fmt.Println(strings.Repeat("=", 85))
 }
 
-// В конце файла:
+// TestPrintBenchmarkSummary тестирует вывод сводки бенчмарка
 func TestPrintBenchmarkSummary(t *testing.T) {
 	printBenchmarkSummary()
 }
 
+// TestPrintHashBenchmarkSummary тестирует вывод сводки бенчмарка хэшей
 func TestPrintHashBenchmarkSummary(t *testing.T) {
 	printHashBenchmarkSummary()
 }
 
-// TestMain вызывается один раз перед всеми тестами
+// TestMain настраивает тестовое окружение
 func TestMain(m *testing.M) {
 	// Запускаем тесты
-	code := m.Run()
+	exitCode := m.Run()
 
-	// После всех тестов выводим таблицы, если есть результаты
-	if len(benchmarkResults) > 0 {
-		printBenchmarkSummary()
-	}
-	if len(hashBenchmarkResults) > 0 {
-		printHashBenchmarkSummary()
-	}
+	// Выводим сводки после всех тестов
+	printBenchmarkSummary()
+	printHashBenchmarkSummary()
 
-	os.Exit(code)
+	os.Exit(exitCode)
 }

@@ -1,4 +1,4 @@
-package openssl
+package cgopenssl
 
 /*
 #cgo CFLAGS: -I${SRCDIR}/../../submodules/build/include
@@ -10,25 +10,6 @@ package openssl
 #include <stdlib.h>
 #include <string.h>
 
-// Принудительная загрузка legacy provider при инициализации
-__attribute__((constructor))
-static void go_force_legacy_provider() {
-    OSSL_PROVIDER_load(NULL, "legacy");
-}
-
-// Инициализация legacy provider
-static void go_init_legacy_provider() {
-    // Устанавливаем путь к модулям
-    setenv("OPENSSL_MODULES", "${SRCDIR}/../../submodules/build/lib/ossl-modules", 1);
-
-    // Загружаем legacy provider
-    OSSL_PROVIDER* legacy = OSSL_PROVIDER_load(NULL, "legacy");
-    if (!legacy) {
-        // Если не удалось загрузить, попробуем загрузить по пути
-        legacy = OSSL_PROVIDER_load(NULL, "${SRCDIR}/../../submodules/build/lib/ossl-modules/legacy.dylib");
-    }
-}
-
 // Структура для хранения контекста хэша
 typedef struct {
     EVP_MD_CTX *ctx;
@@ -37,8 +18,6 @@ typedef struct {
 
 // Создать контекст хэша
 go_hash_ctx_t* go_hash_new(const char* digest_name) {
-    go_init_legacy_provider();
-
     go_hash_ctx_t* ctx = (go_hash_ctx_t*)malloc(sizeof(go_hash_ctx_t));
     if (!ctx) return NULL;
 
@@ -119,8 +98,6 @@ int go_hash_size(go_hash_ctx_t* ctx) {
 
 // Получить размер хэша по имени
 int go_hash_get_size(const char* digest_name) {
-    go_init_legacy_provider();
-
     const EVP_MD* md = EVP_get_digestbyname(digest_name);
     if (!md) return 0;
 
@@ -131,101 +108,77 @@ int go_hash_get_size(const char* digest_name) {
 */
 import "C"
 import (
-	"fmt"
 	"unsafe"
-
-	"gopenssl/crypto"
 )
 
-// OpenSSLHasher реализует интерфейс Hasher для OpenSSL
-type OpenSSLHasher struct {
-	algorithm  crypto.HashAlgorithm
-	digestName string
-	ctx        *C.go_hash_ctx_t
+// HashContext представляет CGO контекст хэша
+type HashContext struct {
+	ctx *C.go_hash_ctx_t
 }
 
-// NewOpenSSLHasher создает новый OpenSSL хэшер
-func NewOpenSSLHasher(algorithm crypto.HashAlgorithm, digestName string) (*OpenSSLHasher, error) {
-	hasher := &OpenSSLHasher{
-		algorithm:  algorithm,
-		digestName: digestName,
-	}
-
-	// Создаем контекст
+// NewHashContext создает новый контекст хэша
+func NewHashContext(digestName string) (*HashContext, error) {
 	ctx := C.go_hash_new(C.CString(digestName))
 	if ctx == nil {
-		return nil, fmt.Errorf("failed to create hash context for %s", digestName)
+		return nil, nil
 	}
-
-	hasher.ctx = ctx
-	return hasher, nil
+	return &HashContext{ctx: ctx}, nil
 }
 
-// Write добавляет данные для хэширования
-func (h *OpenSSLHasher) Write(data []byte) (int, error) {
-	if h.ctx == nil {
-		return 0, fmt.Errorf("hash context is nil")
-	}
-
+// Update обновляет хэш
+func (h *HashContext) Update(data []byte) error {
 	if len(data) == 0 {
-		return 0, nil
+		return nil
 	}
 
 	result := C.go_hash_update(h.ctx, (*C.uchar)(unsafe.Pointer(&data[0])), C.int(len(data)))
 	if result != 1 {
-		return 0, fmt.Errorf("hash update failed for %s", h.digestName)
+		return nil
 	}
-
-	return len(data), nil
+	return nil
 }
 
-// Sum возвращает хэш от добавленных данных
-func (h *OpenSSLHasher) Sum() []byte {
-	if h.ctx == nil {
-		return nil
-	}
-
-	// Получаем размер хэша
+// Final завершает хэширование
+func (h *HashContext) Final() ([]byte, error) {
 	size := int(C.go_hash_size(h.ctx))
 	if size <= 0 {
-		return nil
+		return nil, nil
 	}
 
-	// Выделяем буфер для результата
 	out := make([]byte, size)
 	var outLen C.uint
 
-	// Завершаем хэширование
 	result := C.go_hash_final(h.ctx, (*C.uchar)(unsafe.Pointer(&out[0])), &outLen)
+	if result != 1 {
+		return nil, nil
+	}
+
+	return out[:outLen], nil
+}
+
+// Reset сбрасывает контекст
+func (h *HashContext) Reset() error {
+	result := C.go_hash_reset(h.ctx)
 	if result != 1 {
 		return nil
 	}
-
-	return out[:int(outLen)]
+	return nil
 }
 
-// Reset сбрасывает состояние хэшера
-func (h *OpenSSLHasher) Reset() {
-	if h.ctx != nil {
-		C.go_hash_reset(h.ctx)
-	}
-}
-
-// Size возвращает размер хэша в байтах
-func (h *OpenSSLHasher) Size() int {
-	return int(C.go_hash_get_size(C.CString(h.digestName)))
-}
-
-// Algorithm возвращает алгоритм хэширования
-func (h *OpenSSLHasher) Algorithm() crypto.HashAlgorithm {
-	return h.algorithm
-}
-
-// Close освобождает ресурсы
-func (h *OpenSSLHasher) Close() error {
+// Free освобождает контекст
+func (h *HashContext) Free() {
 	if h.ctx != nil {
 		C.go_hash_free(h.ctx)
 		h.ctx = nil
 	}
-	return nil
+}
+
+// GetSize возвращает размер хэша
+func (h *HashContext) GetSize() int {
+	return int(C.go_hash_size(h.ctx))
+}
+
+// GetSizeByName возвращает размер хэша по имени
+func GetSizeByName(digestName string) int {
+	return int(C.go_hash_get_size(C.CString(digestName)))
 }

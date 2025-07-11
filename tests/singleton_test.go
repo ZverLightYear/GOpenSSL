@@ -3,8 +3,7 @@ package tests
 import (
 	"testing"
 
-	"gopenssl/crypto"
-	"gopenssl/crypto/openssl"
+	"gopenssl"
 )
 
 // TestSingletonProvider проверяет что синглтон провайдера работает правильно
@@ -12,7 +11,7 @@ func TestSingletonProvider(t *testing.T) {
 	// Получаем провайдер несколько раз
 	provider1 := getProvider()
 	provider2 := getProvider()
-	provider3 := openssl.GetProvider()
+	provider3 := gopenssl.GetProvider()
 
 	// Проверяем что это один и тот же экземпляр
 	if provider1 != provider2 {
@@ -20,7 +19,7 @@ func TestSingletonProvider(t *testing.T) {
 	}
 
 	if provider1 != provider3 {
-		t.Error("openssl.GetProvider() должен возвращать тот же экземпляр")
+		t.Error("gopenssl.GetProvider() должен возвращать тот же экземпляр")
 	}
 
 	// Проверяем что провайдер работает
@@ -47,7 +46,7 @@ func TestSingletonProvider(t *testing.T) {
 // TestMultipleCalls проверяет что множественные вызовы не создают новые экземпляры
 func TestMultipleCalls(t *testing.T) {
 	// Вызываем getProvider много раз
-	providers := make([]crypto.CryptoProvider, 10)
+	providers := make([]gopenssl.CryptoProvider, 10)
 	for i := 0; i < 10; i++ {
 		providers[i] = getProvider()
 	}
@@ -61,7 +60,7 @@ func TestMultipleCalls(t *testing.T) {
 	}
 
 	// Проверяем что провайдер работает после множественных вызовов
-	cipher, err := first.NewCipher(crypto.AES, crypto.ModeCBC, make([]byte, 32), make([]byte, 16))
+	cipher, err := first.NewCipher(gopenssl.AES, gopenssl.ModeCBC, make([]byte, 32), make([]byte, 16))
 	if err != nil {
 		t.Errorf("Не удалось создать шифр после множественных вызовов: %v", err)
 	}
