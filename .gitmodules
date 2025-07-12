@@ -3,4 +3,4 @@
 	url = https://github.com/openssl/openssl.git
 [submodule "submodules/gost-engine"]
 	path = submodules/gost-engine
-	url = https://github.com/gost-engine/engine
+	url = https://github.com/gost-engine/engine.git

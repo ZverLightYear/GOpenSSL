@@ -1,8 +1,8 @@
 package cgopenssl
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/../submodules/build/include -Wno-deprecated-declarations
-#cgo LDFLAGS: -L${SRCDIR}/../submodules/build/lib -lssl -lcrypto -ldl
+#cgo CFLAGS: -I/Users/sergey.zverev/Projects/own/GOpenSSL/submodules/openssl/include -Wno-deprecated-declarations
+#cgo LDFLAGS: -L/Users/sergey.zverev/Projects/own/GOpenSSL/build -ldl
 #include <openssl/evp.h>
 #include <openssl/opensslv.h>
 #include <openssl/crypto.h>
