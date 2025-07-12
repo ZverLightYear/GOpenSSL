@@ -54,9 +54,9 @@ func (p *OpenSSLProvider) OpenSSLVersion() string {
 // ListCiphers возвращает список доступных шифров (кэшированный)
 func (p *OpenSSLProvider) ListCiphers() []string {
 	p.cacheOnce.Do(func() {
-		// TODO: Реализовать через cgo
-		p.ciphersCache = []string{"AES-256-CBC", "AES-256-GCM", "gost89", "gost89-cbc"}
-		p.hashesCache = []string{"SHA256", "SHA512", "MD5", "md_gost94"}
+		// Получаем реальный список из OpenSSL через cgo
+		p.ciphersCache = cgopenssl.ListCiphers()
+		p.hashesCache = cgopenssl.ListHashes()
 	})
 	return p.ciphersCache
 }
@@ -197,7 +197,8 @@ func (p *OpenSSLProvider) IsGrassHopperSupported() bool {
 	ciphers := p.ListCiphers()
 	for _, cipher := range ciphers {
 		if strings.Contains(strings.ToLower(cipher), "grasshopper") ||
-			strings.Contains(strings.ToLower(cipher), "magma") {
+			strings.Contains(strings.ToLower(cipher), "magma") ||
+			strings.Contains(strings.ToLower(cipher), "kuznyechik") {
 			return true
 		}
 	}

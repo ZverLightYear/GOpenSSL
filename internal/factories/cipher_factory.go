@@ -270,15 +270,15 @@ func (f *CipherFactory) newGrassHopperCipher(mode common.CipherMode, key []byte,
 	var cipherName string
 	switch mode {
 	case common.ModeECB:
-		cipherName = "grasshopper-ecb"
+		cipherName = "kuznyechik-ecb" // GrassHopper в OpenSSL называется kuznyechik
 	case common.ModeCBC:
-		cipherName = "grasshopper-cbc"
+		cipherName = "kuznyechik-cbc"
 	case common.ModeCFB:
-		cipherName = "grasshopper-cfb"
+		cipherName = "kuznyechik-cfb"
 	case common.ModeOFB:
-		cipherName = "grasshopper-ofb"
+		cipherName = "kuznyechik-ofb"
 	case common.ModeCTR:
-		cipherName = "grasshopper-ctr"
+		cipherName = "kuznyechik-ctr"
 	default:
 		return nil, fmt.Errorf("unsupported mode %s for GrassHopper", mode)
 	}

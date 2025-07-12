@@ -2,16 +2,15 @@ package tests
 
 import (
 	"crypto/rand"
+	"gopenssl"
+	"gopenssl/internal/common"
 	"testing"
 	"time"
-
-	"gopenssl/crypto"
-	"gopenssl/crypto/openssl"
 )
 
 func TestQuickBenchmark(t *testing.T) {
 	// Используем глобальный синглтон провайдер
-	provider := openssl.GetProvider()
+	provider := gopenssl.GetProvider()
 	if provider == nil {
 		t.Fatal("Failed to get OpenSSL provider")
 	}
@@ -26,7 +25,7 @@ func TestQuickBenchmark(t *testing.T) {
 	rand.Read(data)
 
 	// Тестируем только AES-256-CBC
-	cipher, err := provider.NewCipher(crypto.AES, crypto.ModeCBC, key, iv)
+	cipher, err := provider.NewCipher(common.AES, common.ModeCBC, key, iv)
 	if err != nil {
 		t.Fatalf("Failed to create AES-256-CBC cipher: %v", err)
 	}

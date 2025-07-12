@@ -4,14 +4,13 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
+	"gopenssl"
+	"gopenssl/internal/common"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
 	"time"
-
-	"gopenssl/crypto"
-	"gopenssl/crypto/openssl"
 )
 
 func TestAESGoCLICrossDecrypt(t *testing.T) {
@@ -20,7 +19,7 @@ func TestAESGoCLICrossDecrypt(t *testing.T) {
 		t.Skipf("OpenSSL CLI not found at %s", opensslPath)
 	}
 
-	provider := openssl.NewProvider()
+	provider := gopenssl.NewProvider()
 	key := make([]byte, 32) // AES-256
 	iv := make([]byte, 16)
 	plaintext := []byte("The quick brown fox jumps over the lazy dog. This is a test string of arbitrary length!")
@@ -29,7 +28,7 @@ func TestAESGoCLICrossDecrypt(t *testing.T) {
 
 	// Go encrypt → CLI decrypt
 	t.Run("GoEncrypt_CliDecrypt", func(t *testing.T) {
-		cipher, err := provider.NewCipher(crypto.AES, crypto.ModeCBC, key, iv)
+		cipher, err := provider.NewCipher(common.AES, common.ModeCBC, key, iv)
 		if err != nil {
 			t.Fatalf("Go: failed to create cipher: %v", err)
 		}
@@ -52,7 +51,7 @@ func TestAESGoCLICrossDecrypt(t *testing.T) {
 		if err != nil {
 			t.Fatalf("CLI: failed to encrypt: %v", err)
 		}
-		cipher, err := provider.NewCipher(crypto.AES, crypto.ModeCBC, key, iv)
+		cipher, err := provider.NewCipher(common.AES, common.ModeCBC, key, iv)
 		if err != nil {
 			t.Fatalf("Go: failed to create cipher: %v", err)
 		}
@@ -74,7 +73,7 @@ func TestGOSTGoCLICrossDecrypt(t *testing.T) {
 	}
 
 	// Создаем провайдер и проверяем доступные шифры
-	provider := openssl.NewProvider()
+	provider := gopenssl.NewProvider()
 	ciphers := provider.ListCiphers()
 	t.Logf("Available ciphers in Go: %v", ciphers)
 
@@ -106,7 +105,7 @@ func TestGOSTGoCLICrossDecrypt(t *testing.T) {
 		t.Logf("IV size: %d bytes", len(iv))
 
 		// Go шифрует
-		cipher, err := provider.NewCipher(crypto.GOST, crypto.ModeCBC, key, iv)
+		cipher, err := provider.NewCipher(common.GOST, common.ModeCBC, key, iv)
 		if err != nil {
 			// Вывести список доступных шифров для отладки
 			t.Fatalf("Go: failed to encrypt with GOST: %v\nAvailable ciphers: %v", err, ciphers)
@@ -143,7 +142,7 @@ func TestGOSTGoCLICrossDecrypt(t *testing.T) {
 		t.Logf("CLI ciphertext size: %d bytes", len(ciphertext))
 
 		// Go расшифровывает
-		cipher, err := provider.NewCipher(crypto.GOST, crypto.ModeCBC, key, iv)
+		cipher, err := provider.NewCipher(common.GOST, common.ModeCBC, key, iv)
 		if err != nil {
 			t.Fatalf("Go: failed to create GOST cipher: %v", err)
 		}
@@ -160,24 +159,24 @@ func TestGOSTGoCLICrossDecrypt(t *testing.T) {
 	})
 }
 
-func testCipherComparison(t *testing.T, provider crypto.CryptoProvider, cipherName string, data, key, iv []byte, opensslPath string) {
+func testCipherComparison(t *testing.T, provider common.CryptoProvider, cipherName string, data, key, iv []byte, opensslPath string) {
 	// Определяем алгоритм и режим из имени шифра
-	var algorithm crypto.CipherAlgorithm
-	var mode crypto.CipherMode
+	var algorithm common.CipherAlgorithm
+	var mode common.CipherMode
 
 	switch cipherName {
 	case "AES-256-CBC":
-		algorithm = crypto.AES
-		mode = crypto.ModeCBC
+		algorithm = common.AES
+		mode = common.ModeCBC
 	case "AES-256-ECB":
-		algorithm = crypto.AES
-		mode = crypto.ModeECB
+		algorithm = common.AES
+		mode = common.ModeECB
 	case "GOST-256-CBC":
-		algorithm = crypto.GOST
-		mode = crypto.ModeCBC
+		algorithm = common.GOST
+		mode = common.ModeCBC
 	case "GOST-256-ECB":
-		algorithm = crypto.GOST
-		mode = crypto.ModeECB
+		algorithm = common.GOST
+		mode = common.ModeECB
 	default:
 		t.Fatalf("Unsupported cipher name: %s", cipherName)
 	}

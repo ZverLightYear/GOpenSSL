@@ -146,4 +146,10 @@ type CryptoProvider interface {
 
 	// ListHashes возвращает список доступных хэш-алгоритмов
 	ListHashes() []string
+
+	// IsGOSTSupported проверяет поддержку GOST алгоритмов
+	IsGOSTSupported() bool
+
+	// IsGrassHopperSupported проверяет поддержку GrassHopper алгоритмов
+	IsGrassHopperSupported() bool
 }

@@ -5,26 +5,26 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"gopenssl/crypto"
-	"gopenssl/crypto/openssl"
+	"gopenssl"
+	"gopenssl/internal/common"
 )
 
 // TestHashAlgorithms тестирует все поддерживаемые алгоритмы хэширования
 func TestHashAlgorithms(t *testing.T) {
-	provider := openssl.NewProvider()
+	provider := gopenssl.NewProvider()
 
 	testData := []byte("Hello, World! This is a test message for hashing.")
 
 	// Тестируем все поддерживаемые алгоритмы
-	hashAlgorithms := []crypto.HashAlgorithm{
-		crypto.SHA1,
-		crypto.SHA224,
-		crypto.SHA256,
-		crypto.SHA384,
-		crypto.SHA512,
-		crypto.MD5,
-		crypto.MD4,
-		crypto.GOST34_11,
+	hashAlgorithms := []common.HashAlgorithm{
+		common.SHA1,
+		common.SHA224,
+		common.SHA256,
+		common.SHA384,
+		common.SHA512,
+		common.MD5,
+		common.MD4,
+		common.GOST34_11,
 	}
 
 	for _, algorithm := range hashAlgorithms {
@@ -32,6 +32,10 @@ func TestHashAlgorithms(t *testing.T) {
 			// Создаем хэшер
 			hasher, err := provider.NewHasher(algorithm)
 			if err != nil {
+				// MD4 должен поддерживаться
+				if algorithm == common.MD4 {
+					t.Fatalf("MD4 not supported - this should work!: %v", err)
+				}
 				t.Fatalf("Failed to create %s hasher: %v", algorithm, err)
 			}
 
@@ -85,23 +89,27 @@ func TestHashAlgorithms(t *testing.T) {
 
 // TestHashSizes проверяет размеры хэшей для разных алгоритмов
 func TestHashSizes(t *testing.T) {
-	provider := openssl.NewProvider()
+	provider := gopenssl.NewProvider()
 
-	expectedSizes := map[crypto.HashAlgorithm]int{
-		crypto.SHA1:      20, // 160 bits
-		crypto.SHA224:    28, // 224 bits
-		crypto.SHA256:    32, // 256 bits
-		crypto.SHA384:    48, // 384 bits
-		crypto.SHA512:    64, // 512 bits
-		crypto.MD5:       16, // 128 bits
-		crypto.MD4:       16, // 128 bits
-		crypto.GOST34_11: 32, // 256 bits
+	expectedSizes := map[common.HashAlgorithm]int{
+		common.SHA1:      20, // 160 bits
+		common.SHA224:    28, // 224 bits
+		common.SHA256:    32, // 256 bits
+		common.SHA384:    48, // 384 bits
+		common.SHA512:    64, // 512 bits
+		common.MD5:       16, // 128 bits
+		common.MD4:       16, // 128 bits
+		common.GOST34_11: 32, // 256 bits
 	}
 
 	for algorithm, expectedSize := range expectedSizes {
 		t.Run(string(algorithm), func(t *testing.T) {
 			hasher, err := provider.NewHasher(algorithm)
 			if err != nil {
+				// MD4 должен поддерживаться
+				if algorithm == common.MD4 {
+					t.Fatalf("MD4 not supported - this should work!: %v", err)
+				}
 				t.Fatalf("Failed to create %s hasher: %v", algorithm, err)
 			}
 
@@ -115,12 +123,12 @@ func TestHashSizes(t *testing.T) {
 
 // TestHashEmptyData тестирует хэширование пустых данных
 func TestHashEmptyData(t *testing.T) {
-	provider := openssl.NewProvider()
+	provider := gopenssl.NewProvider()
 
-	algorithms := []crypto.HashAlgorithm{
-		crypto.SHA256,
-		crypto.MD5,
-		crypto.GOST34_11,
+	algorithms := []common.HashAlgorithm{
+		common.SHA256,
+		common.MD5,
+		common.GOST34_11,
 	}
 
 	for _, algorithm := range algorithms {
@@ -154,16 +162,16 @@ func TestHashEmptyData(t *testing.T) {
 
 // TestHashLargeData тестирует хэширование больших данных
 func TestHashLargeData(t *testing.T) {
-	provider := openssl.NewProvider()
+	provider := gopenssl.NewProvider()
 
 	// Создаем большие данные (1MB)
 	largeData := make([]byte, 1024*1024)
 	rand.Read(largeData)
 
-	algorithms := []crypto.HashAlgorithm{
-		crypto.SHA256,
-		crypto.SHA512,
-		crypto.GOST34_11,
+	algorithms := []common.HashAlgorithm{
+		common.SHA256,
+		common.SHA512,
+		common.GOST34_11,
 	}
 
 	for _, algorithm := range algorithms {
@@ -196,14 +204,14 @@ func TestHashLargeData(t *testing.T) {
 
 // TestHashStreaming тестирует потоковое хэширование
 func TestHashStreaming(t *testing.T) {
-	provider := openssl.NewProvider()
+	provider := gopenssl.NewProvider()
 
 	testData := []byte("Hello, World! This is a test message for streaming hashing.")
 
-	algorithms := []crypto.HashAlgorithm{
-		crypto.SHA256,
-		crypto.SHA512,
-		crypto.GOST34_11,
+	algorithms := []common.HashAlgorithm{
+		common.SHA256,
+		common.SHA512,
+		common.GOST34_11,
 	}
 
 	for _, algorithm := range algorithms {
@@ -251,15 +259,15 @@ func TestHashStreaming(t *testing.T) {
 
 // TestHashReset тестирует сброс хэшера
 func TestHashReset(t *testing.T) {
-	provider := openssl.NewProvider()
+	provider := gopenssl.NewProvider()
 
 	testData1 := []byte("First message")
 	testData2 := []byte("Second message")
 
-	algorithms := []crypto.HashAlgorithm{
-		crypto.SHA256,
-		crypto.SHA512,
-		crypto.GOST34_11,
+	algorithms := []common.HashAlgorithm{
+		common.SHA256,
+		common.SHA512,
+		common.GOST34_11,
 	}
 
 	for _, algorithm := range algorithms {
@@ -300,16 +308,16 @@ func TestHashReset(t *testing.T) {
 
 // TestHashConsistency тестирует консистентность хэшей
 func TestHashConsistency(t *testing.T) {
-	provider := openssl.NewProvider()
+	provider := gopenssl.NewProvider()
 
 	testData := []byte("Consistency test message")
 
-	algorithms := []crypto.HashAlgorithm{
-		crypto.SHA1,
-		crypto.SHA256,
-		crypto.SHA512,
-		crypto.MD5,
-		crypto.GOST34_11,
+	algorithms := []common.HashAlgorithm{
+		common.SHA1,
+		common.SHA256,
+		common.SHA512,
+		common.MD5,
+		common.GOST34_11,
 	}
 
 	for _, algorithm := range algorithms {
@@ -341,17 +349,17 @@ func TestHashConsistency(t *testing.T) {
 
 // BenchmarkHashAlgorithms измеряет производительность хэш-алгоритмов
 func BenchmarkHashAlgorithms(b *testing.B) {
-	provider := openssl.NewProvider()
+	provider := gopenssl.NewProvider()
 
 	testData := make([]byte, 1024)
 	rand.Read(testData)
 
-	algorithms := []crypto.HashAlgorithm{
-		crypto.SHA1,
-		crypto.SHA256,
-		crypto.SHA512,
-		crypto.MD5,
-		crypto.GOST34_11,
+	algorithms := []common.HashAlgorithm{
+		common.SHA1,
+		common.SHA256,
+		common.SHA512,
+		common.MD5,
+		common.GOST34_11,
 	}
 
 	for _, algorithm := range algorithms {
@@ -373,12 +381,12 @@ func BenchmarkHashAlgorithms(b *testing.B) {
 
 // BenchmarkHashCreationPerAlgorithm измеряет производительность создания хэшеров по алгоритмам
 func BenchmarkHashCreationPerAlgorithm(b *testing.B) {
-	provider := openssl.NewProvider()
+	provider := gopenssl.NewProvider()
 
-	algorithms := []crypto.HashAlgorithm{
-		crypto.SHA256,
-		crypto.SHA512,
-		crypto.GOST34_11,
+	algorithms := []common.HashAlgorithm{
+		common.SHA256,
+		common.SHA512,
+		common.GOST34_11,
 	}
 
 	for _, algorithm := range algorithms {
