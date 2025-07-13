@@ -1,19 +1,24 @@
 package cgo_evp
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/../../submodules/build/include -Wno-deprecated-declarations
-#cgo LDFLAGS: -L${SRCDIR}/../../submodules/build/lib -lcrypto
-#include "base.h"
+#cgo CFLAGS: -I${SRCDIR}submodules/openssl/include -Wno-deprecated-declarations
+#include "aes.h"
 */
 import "C"
-import (
-	"unsafe"
-)
+import "unsafe"
 
-// GetAvailableCiphers возвращает список доступных шифров
-func GetAvailableCiphers() []string {
-	var count C.int
-	ciphers := C.get_available_ciphers(&count)
+type AES struct {
+	ctx c.
+}
+
+func Init(key string) []string {
+	init := C.aes_init(
+		unsigned char *key_data,
+		int key_data_len,
+		unsigned char *salt,
+		EVP_CIPHER_CTX *e_ctx,
+		EVP_CIPHER_CTX *d_ctx,
+	)
 	if ciphers == nil {
 		return []string{}
 	}
@@ -31,32 +36,21 @@ func GetAvailableCiphers() []string {
 }
 
 // GetAvailableDigests возвращает список доступных хэш-функций
-func GetAvailableDigests() []string {
-	var count C.int
-	digests := C.get_available_digests(&count)
-	if digests == nil {
-		return []string{}
-	}
-	defer C.free_string_list(digests, count)
-
-	result := make([]string, int(count))
-	// Преобразуем C массив в Go слайс
-	digestArray := (*[1 << 30]*C.char)(unsafe.Pointer(digests))[:count:count]
-	for i := 0; i < int(count); i++ {
-		if digestArray[i] != nil {
-			result[i] = C.GoString(digestArray[i])
-		}
-	}
-	return result
+func Encrypt(plaintext string) []string {
+	//unsigned char *aes_encrypt(
+	//	EVP_CIPHER_CTX *e,
+	//	unsigned char *plaintext,
+	//	int *len,
+	//);
 }
 
 // GetOpenSSLVersion возвращает версию OpenSSL
-func GetOpenSSLVersion() string {
-	version := C.get_openssl_version()
-	if version == nil {
-		return ""
-	}
-	return C.GoString(version)
+func Decrypt() string {
+	//unsigned char *aes_decrypt(
+	//	EVP_CIPHER_CTX *e,
+	//	unsigned char *ciphertext,
+	//	int *len,
+	//);
 }
 
 // GetOpenSSLBuildInfo возвращает информацию о сборке OpenSSL

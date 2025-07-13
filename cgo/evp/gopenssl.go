@@ -1,7 +1,8 @@
 package cgo_evp
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/../submodules/openssl/include -Wno-deprecated-declarations
+#cgo CFLAGS: -I${SRCDIR}/../../submodules/build/include -Wno-deprecated-declarations
+#cgo LDFLAGS: -L${SRCDIR}/../../submodules/build/lib -lcrypto
 #include "openssl_import.h"
 */
 import "C"
