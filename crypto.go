@@ -7,12 +7,12 @@ import (
 
 // GetProvider возвращает глобальный синглтон провайдера
 func GetProvider() common.CryptoProvider {
-	return providers.GetProvider()
+	return providers.NewOpenSSLProvider()
 }
 
 // NewProvider создает новый провайдер
 func NewProvider() common.CryptoProvider {
-	return providers.NewProvider()
+	return providers.NewOpenSSLProvider()
 }
 
 // Re-export common types for backward compatibility

@@ -2,7 +2,7 @@ package ciphers
 
 import (
 	"fmt"
-	cgopenssl "gopenssl/cgo"
+	cgo_evp "gopenssl/cgo/evp"
 
 	"gopenssl/internal/common"
 )
@@ -34,7 +34,7 @@ func (c *OpenSSLCipher) Encrypt(plaintext []byte) ([]byte, error) {
 	}
 
 	// Создаем новый контекст для шифрования
-	ctx, err := cgopenssl.NewCipherContext(c.cipherName, true, c.key, c.iv)
+	ctx, err := cgo_evp.NewCipherContext(c.cipherName, true, c.key, c.iv)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create encryption context: %v", err)
 	}
@@ -70,7 +70,7 @@ func (c *OpenSSLCipher) Decrypt(ciphertext []byte) ([]byte, error) {
 	}
 
 	// Создаем новый контекст для дешифрования
-	ctx, err := cgopenssl.NewCipherContext(c.cipherName, false, c.key, c.iv)
+	ctx, err := cgo_evp.NewCipherContext(c.cipherName, false, c.key, c.iv)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create decryption context: %v", err)
 	}
@@ -101,7 +101,7 @@ func (c *OpenSSLCipher) Decrypt(ciphertext []byte) ([]byte, error) {
 
 // EncryptStream создает потоковый шифратор
 func (c *OpenSSLCipher) EncryptStream() (common.CipherStream, error) {
-	ctx, err := cgopenssl.NewCipherContext(c.cipherName, true, c.key, c.iv)
+	ctx, err := cgo_evp.NewCipherContext(c.cipherName, true, c.key, c.iv)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create encryption stream context: %v", err)
 	}
@@ -118,7 +118,7 @@ func (c *OpenSSLCipher) EncryptStream() (common.CipherStream, error) {
 
 // DecryptStream создает потоковый дешифратор
 func (c *OpenSSLCipher) DecryptStream() (common.CipherStream, error) {
-	ctx, err := cgopenssl.NewCipherContext(c.cipherName, false, c.key, c.iv)
+	ctx, err := cgo_evp.NewCipherContext(c.cipherName, false, c.key, c.iv)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create decryption stream context: %v", err)
 	}
@@ -150,12 +150,12 @@ func (c *OpenSSLCipher) KeySize() int {
 
 // BlockSize возвращает размер блока в байтах
 func (c *OpenSSLCipher) BlockSize() int {
-	return cgopenssl.GetBlockSizeByName(c.cipherName)
+	return cgo_evp.GetBlockSizeByName(c.cipherName)
 }
 
 // OpenSSLCipherStream представляет потоковый интерфейс для шифрования/дешифрования
 type OpenSSLCipherStream struct {
-	ctx       *cgopenssl.CipherContext
+	ctx       *cgo_evp.CipherContext
 	isEncrypt bool
 	buffer    []byte
 }

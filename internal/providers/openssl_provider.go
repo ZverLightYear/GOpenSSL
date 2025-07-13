@@ -2,73 +2,43 @@ package providers
 
 import (
 	"fmt"
-	cgopenssl "gopenssl/cgo"
-	"strings"
-	"sync"
-
+	"gopenssl/cgo"
+	cgo_evp "gopenssl/cgo/evp"
 	"gopenssl/internal/common"
 	"gopenssl/internal/factories"
+	"strings"
 )
 
-// Глобальный синглтон провайдера
-var (
-	globalProvider *OpenSSLProvider
-	providerOnce   sync.Once
-)
-
-// GetProvider возвращает глобальный синглтон провайдера
-func GetProvider() *OpenSSLProvider {
-	providerOnce.Do(func() {
-		globalProvider = &OpenSSLProvider{
-			cipherFactory: factories.NewCipherFactory(),
-			hashFactory:   factories.NewHashFactory(),
-		}
-	})
-	return globalProvider
-}
-
-// OpenSSLProvider реализует интерфейс CryptoProvider для OpenSSL
 type OpenSSLProvider struct {
-	cipherFactory *factories.CipherFactory
-	hashFactory   *factories.HashFactory
-
-	// Кэш для списков шифров и хэшей
-	ciphersCache []string
-	hashesCache  []string
-	cacheOnce    sync.Once
+	cipherFactory  *factories.CipherFactory
+	hashFactory    *factories.HashFactory
+	openSslVersion string
 }
 
-// NewProvider создает новый OpenSSL провайдер
-func NewProvider() *OpenSSLProvider {
+func NewOpenSSLProvider() *OpenSSLProvider {
 	return &OpenSSLProvider{
-		cipherFactory: factories.NewCipherFactory(),
-		hashFactory:   factories.NewHashFactory(),
+		cipherFactory:  factories.NewCipherFactory(),
+		hashFactory:    factories.NewHashFactory(),
+		openSslVersion: cgo.OpenSSLVersion(),
 	}
 }
 
 // OpenSSLVersion возвращает версию OpenSSL
+// ToDO: cache
 func (p *OpenSSLProvider) OpenSSLVersion() string {
-	return cgopenssl.OpenSSLVersion()
+	return p.openSslVersion
 }
 
-// ListCiphers возвращает список доступных шифров (кэшированный)
+// ListCiphers возвращает список доступных шифров
+// ToDO: cache
 func (p *OpenSSLProvider) ListCiphers() []string {
-	p.cacheOnce.Do(func() {
-		// Получаем реальный список из OpenSSL через cgo
-		p.ciphersCache = cgopenssl.ListCiphers()
-		p.hashesCache = cgopenssl.ListHashes()
-	})
-	return p.ciphersCache
+	return cgo_evp.ListCiphers()
 }
 
-// ListHashes возвращает список доступных хэш-алгоритмов (кэшированный)
+// ListHashes возвращает список доступных хэш-алгоритмов
+// ToDO: cache
 func (p *OpenSSLProvider) ListHashes() []string {
-	p.cacheOnce.Do(func() {
-		// TODO: Реализовать через cgo
-		p.ciphersCache = []string{"AES-256-CBC", "AES-256-GCM", "gost89", "gost89-cbc"}
-		p.hashesCache = []string{"SHA256", "SHA512", "MD5", "md_gost94"}
-	})
-	return p.hashesCache
+	return cgo_evp.ListHashes()
 }
 
 // NewCipher создает новый шифр

@@ -2,7 +2,7 @@ package hashes
 
 import (
 	"fmt"
-	cgopenssl "gopenssl/cgo"
+	cgo_evp "gopenssl/cgo/evp"
 
 	"gopenssl/internal/common"
 )
@@ -11,7 +11,7 @@ import (
 type OpenSSLHasher struct {
 	algorithm  common.HashAlgorithm
 	digestName string
-	ctx        *cgopenssl.HashContext
+	ctx        *cgo_evp.HashContext
 }
 
 // NewOpenSSLHasher создает новый OpenSSL хэшер
@@ -22,7 +22,7 @@ func NewOpenSSLHasher(algorithm common.HashAlgorithm, digestName string) (*OpenS
 	}
 
 	// Создаем контекст
-	ctx, err := cgopenssl.NewHashContext(digestName)
+	ctx, err := cgo_evp.NewHashContext(digestName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create hash context: %v", err)
 	}
@@ -79,7 +79,7 @@ func (h *OpenSSLHasher) Size() int {
 	if h.ctx != nil {
 		return h.ctx.GetSize()
 	}
-	return cgopenssl.GetSizeByName(h.digestName)
+	return cgo_evp.GetSizeByName(h.digestName)
 }
 
 // Algorithm возвращает алгоритм хэширования

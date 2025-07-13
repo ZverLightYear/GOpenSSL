@@ -2,12 +2,13 @@ package tests
 
 import (
 	"gopenssl/cgo"
+	cgo_evp "gopenssl/cgo/evp"
 	"strings"
 	"testing"
 )
 
 func TestOpenSSLVersion(t *testing.T) {
-	ver := cgopenssl.OpenSSLVersion()
+	ver := cgo.OpenSSLVersion()
 	if ver == "" {
 		t.Fatal("OpenSSL version is empty")
 	}
@@ -15,7 +16,7 @@ func TestOpenSSLVersion(t *testing.T) {
 }
 
 func TestListCiphers(t *testing.T) {
-	ciphers := cgopenssl.ListCiphers()
+	ciphers := cgo_evp.ListCiphers()
 	if len(ciphers) == 0 {
 		t.Fatal("No ciphers found")
 	}
@@ -25,7 +26,7 @@ func TestListCiphers(t *testing.T) {
 }
 
 func TestCipherGOSTPresent(t *testing.T) {
-	ciphers := cgopenssl.ListCiphers()
+	ciphers := cgo_evp.ListCiphers()
 	found := false
 	for _, c := range ciphers {
 		if strings.Contains(strings.ToUpper(c), "GOST") {
