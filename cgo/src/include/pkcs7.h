@@ -2,7 +2,6 @@
 #define PKCS7_H
 
 #include <stdint.h>
-#include <openssl/evp.h>
 #include <openssl/objects.h>
 #include <openssl/pkcs7.h>
 

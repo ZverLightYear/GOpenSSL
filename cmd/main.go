@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"gopenssl/cgo"
+	"github.com/ZverLightYear/gopenssl/cgo"
 )
 
 func main() {
