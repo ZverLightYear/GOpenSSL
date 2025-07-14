@@ -2,7 +2,7 @@ package cgo
 
 /*
 #cgo CFLAGS: -Isrc/include
-#cgo CFLAGS: -I${SRCDIR}/../submodules/openssl/include
+//#cgo CFLAGS: -I${SRCDIR}/../submodules/openssl/include
 #cgo LDFLAGS: /Users/sergey.zverev/Projects/own/GOpenSSL/build/libminicrypto.a
 #include "minicrypto.h"
 */
